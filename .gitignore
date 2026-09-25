@@ -50,6 +50,8 @@ exports/
 *.keystore
 *.jks
 key.properties
+docs/
+secrets/
 
 # Symbolication & Obfuscation
 app.*.symbols
