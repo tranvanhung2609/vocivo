@@ -17,29 +17,38 @@ import 'widgets/update/update_dialog.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Edge-to-edge rendering (transparent status/nav bars) ───────
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ),
-  );
+  // ── Edge-to-edge rendering & Orientations (Mobile only) ───────
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ),
+      );
 
-  // ── Supported orientations ────────────────────────────────────
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } catch (e) {
+      debugPrint('Mobile UI setup warning: $e');
+    }
+  }
 
   // ── Platform-specific database initialization ─────────────────
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    try {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    } catch (e) {
+      debugPrint('sqfliteFfiInit error: $e');
+    }
   }
 
   // ── Pre-initialize database ───────────────────────────────────
@@ -113,18 +122,20 @@ class _VocivoAppState extends ConsumerState<VocivoApp> {
         final mq = MediaQuery.of(context);
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
-        // Sync system UI overlay style with current theme
-        SystemChrome.setSystemUIOverlayStyle(
-          isDark
-              ? SystemUiOverlayStyle.light.copyWith(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                )
-              : SystemUiOverlayStyle.dark.copyWith(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                ),
-        );
+        // Sync system UI overlay style with current theme (Mobile only)
+        if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+          SystemChrome.setSystemUIOverlayStyle(
+            isDark
+                ? SystemUiOverlayStyle.light.copyWith(
+                    statusBarColor: Colors.transparent,
+                    systemNavigationBarColor: Colors.transparent,
+                  )
+                : SystemUiOverlayStyle.dark.copyWith(
+                    statusBarColor: Colors.transparent,
+                    systemNavigationBarColor: Colors.transparent,
+                  ),
+          );
+        }
 
         return MediaQuery(
           data: mq.copyWith(

@@ -13,16 +13,7 @@ def generate_icons():
     ico_sizes = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
     windows_ico_path = "windows/runner/resources/app_icon.ico"
     os.makedirs(os.path.dirname(windows_ico_path), exist_ok=True)
-    
-    # Generate list of resized images for ICO
-    ico_images = [img.resize(s, Image.Resampling.LANCZOS) for s in ico_sizes]
-    # Pillow saves ICO with all provided sizes
-    ico_images[0].save(
-        windows_ico_path,
-        format="ICO",
-        sizes=ico_sizes,
-        append_images=ico_images[1:]
-    )
+    img.save(windows_ico_path, format="ICO", sizes=ico_sizes)
     print(f"Generated Windows ICO at: {windows_ico_path} with sizes: {ico_sizes}")
 
     # 2. Android Mipmap Icons
