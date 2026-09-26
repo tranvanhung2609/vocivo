@@ -104,6 +104,73 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
+    // Phát hiện trường hợp nhập nhầm khóa giữa 2 nhà cung cấp
+    if (!isGemini && keyToTest.startsWith('AIzaSy')) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: AppColors.primaryEnglish),
+              SizedBox(width: 8),
+              Expanded(child: Text('Phát hiện API Key Google Gemini')),
+            ],
+          ),
+          content: const Text(
+            'Khóa bạn vừa nhập bắt đầu bằng "AIzaSy" — đây là API Key của Google Gemini (miễn phí), không phải của OpenAI!\n\n'
+            'Bạn có muốn tự động chuyển sang tab Google Gemini để lưu và kiểm tra không?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _switchToProvider('gemini', keyToTest);
+              },
+              child: const Text('Chuyển sang Gemini'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (isGemini && keyToTest.startsWith('sk-')) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: AppColors.primaryEnglish),
+              SizedBox(width: 8),
+              Expanded(child: Text('Phát hiện API Key OpenAI')),
+            ],
+          ),
+          content: const Text(
+            'Khóa bạn vừa nhập bắt đầu bằng "sk-" — đây là API Key của OpenAI (ChatGPT), không phải của Google Gemini!\n\n'
+            'Bạn có muốn tự động chuyển sang tab OpenAI để lưu và kiểm tra không?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _switchToProvider('openai', keyToTest);
+              },
+              child: const Text('Chuyển sang OpenAI'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     setState(() => _isTestingKey = true);
     try {
       // Lưu API Key đang nhập vào bộ nhớ trước khi test
@@ -113,10 +180,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await ref.read(settingsProvider.notifier).setOpenAiApiKey(keyToTest);
       }
 
-      final testRes = await AiService.instance.lookupWord(
-        query: 'hello',
-        languageCode: 'EN',
+      await AiService.instance.testConnection(
+        provider: isGemini ? 'gemini' : 'openai',
+        apiKey: keyToTest,
+        geminiModel: settings.geminiModel,
       );
+
       if (mounted) {
         showDialog(
           context: context,
@@ -129,7 +198,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
             content: Text(
-              'API Key hoạt động chính xác!\n\n• Nhà cung cấp: $providerName\n• Mô hình: ${isGemini ? settings.geminiModel : "gpt-4o-mini"}\n• AI đã phân tích từ "${testRes.word}": ${testRes.meaningVi}',
+              'API Key hoạt động chính xác!\n\n• Nhà cung cấp: $providerName\n• Mô hình: ${isGemini ? settings.geminiModel : "gpt-4o-mini"}\n• Trạng thái: Sẵn sàng sử dụng cho toàn bộ tính năng AI trong app.',
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tuyệt vời')),
@@ -160,6 +229,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         setState(() => _isTestingKey = false);
       }
+    }
+  }
+
+  Future<void> _switchToProvider(String targetProvider, String key) async {
+    await ref.read(settingsProvider.notifier).setActiveProvider(targetProvider);
+    if (targetProvider == 'gemini') {
+      _geminiController.text = key;
+      await ref.read(settingsProvider.notifier).setGeminiApiKey(key);
+      _openAiController.clear();
+      await ref.read(settingsProvider.notifier).setOpenAiApiKey('');
+    } else {
+      _openAiController.text = key;
+      await ref.read(settingsProvider.notifier).setOpenAiApiKey(key);
+      _geminiController.clear();
+      await ref.read(settingsProvider.notifier).setGeminiApiKey('');
+    }
+    if (mounted) {
+      setState(() {});
+      _testApiKey();
     }
   }
 
@@ -252,6 +340,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onChanged: (val) => _onKeyChanged(val, true),
               onSubmitted: (val) => _saveKeyExplicitly(true),
             ),
+            if (_geminiController.text.trim().startsWith('sk-'))
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Khóa này có dạng của OpenAI (bắt đầu bằng sk-).',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _switchToProvider('openai', _geminiController.text.trim()),
+                      child: const Text('Chuyển sang OpenAI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 8),
 
             // Instructions to get free Gemini key
@@ -279,17 +393,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             // Gemini Model dropdown
             DropdownButtonFormField<String>(
-              initialValue: ['gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-3.8-flash'].contains(settings.geminiModel)
+              initialValue: ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'].contains(settings.geminiModel)
                   ? settings.geminiModel
-                  : 'gemini-flash-latest',
+                  : 'gemini-1.5-flash',
               decoration: const InputDecoration(
                 labelText: 'Mô hình Gemini',
                 prefixIcon: Icon(Icons.tune_rounded),
               ),
               items: const [
-                DropdownMenuItem(value: 'gemini-flash-latest', child: Text('Gemini Flash (Mặc định - Khuyên dùng)')),
-                DropdownMenuItem(value: 'gemini-2.5-flash-lite', child: Text('Gemini 2.5 Flash Lite (Tiết kiệm)')),
-                DropdownMenuItem(value: 'gemini-3.8-flash', child: Text('Gemini 3.8 Flash (Thế hệ mới)')),
+                DropdownMenuItem(value: 'gemini-1.5-flash', child: Text('Gemini 1.5 Flash (Mặc định - Nhanh & Miễn phí)')),
+                DropdownMenuItem(value: 'gemini-2.0-flash', child: Text('Gemini 2.0 Flash (Thế hệ mới nhất)')),
+                DropdownMenuItem(value: 'gemini-1.5-pro', child: Text('Gemini 1.5 Pro (Chuyên sâu & suy luận)')),
               ],
               onChanged: (val) {
                 if (val != null) {
@@ -331,6 +445,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onChanged: (val) => _onKeyChanged(val, false),
               onSubmitted: (val) => _saveKeyExplicitly(false),
             ),
+            if (_openAiController.text.trim().startsWith('AIzaSy'))
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Khóa này có dạng của Google Gemini (bắt đầu bằng AIzaSy).',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _switchToProvider('gemini', _openAiController.text.trim()),
+                      child: const Text('Chuyển sang Gemini', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
           ],
 
           const SizedBox(height: 16),

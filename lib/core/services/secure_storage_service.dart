@@ -60,10 +60,13 @@ class SecureStorageService {
 
   Future<String> getGeminiModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final model = prefs.getString(_kGeminiModel) ?? 'gemini-flash-latest';
-    if (model == 'gemini-1.5-flash' || model == 'gemini-2.0-flash' || model == 'gemini-2.5-flash') {
-      await prefs.setString(_kGeminiModel, 'gemini-flash-latest');
-      return 'gemini-flash-latest';
+    final model = prefs.getString(_kGeminiModel) ?? 'gemini-1.5-flash';
+    // Migrate any legacy or hallucinated model IDs to standard official models
+    if (model == 'gemini-flash-latest' ||
+        model.contains('3.8') ||
+        model.contains('2.5-flash-lite')) {
+      await prefs.setString(_kGeminiModel, 'gemini-1.5-flash');
+      return 'gemini-1.5-flash';
     }
     return model;
   }

@@ -298,18 +298,68 @@ Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ v�
   // PRIVATE HTTP HELPERS — Tập trung logic gọi API, tránh duplication
   // ==========================================================================
 
+  /// Kiểm tra trực tiếp kết nối với API Key cụ thể và kiểm tra định dạng
+  Future<String> testConnection({
+    required String provider, // 'gemini' hoặc 'openai'
+    required String apiKey,
+    String? geminiModel,
+  }) async {
+    final cleanKey = apiKey.trim();
+    if (provider == 'gemini') {
+      if (cleanKey.startsWith('sk-')) {
+        throw Exception(
+          'Khóa bạn nhập bắt đầu bằng "sk-" — đây là API Key của OpenAI (ChatGPT)!\n'
+          'Vui lòng chọn tab "OpenAI" phía trên để sử dụng khóa này, hoặc lấy Gemini API Key miễn phí tại aistudio.google.com.',
+        );
+      }
+      return await _callGemini(
+        contents: [
+          {
+            'parts': [
+              {'text': 'Trả về JSON: {"status": "ok", "message": "hello"}'}
+            ]
+          }
+        ],
+        apiKeyOverride: cleanKey,
+        modelOverride: geminiModel,
+      );
+    } else {
+      if (cleanKey.startsWith('AIzaSy')) {
+        throw Exception(
+          'Khóa bạn nhập bắt đầu bằng "AIzaSy" — đây là API Key của Google Gemini!\n'
+          'Vui lòng chọn tab "Google Gemini (Miễn phí)" phía trên để sử dụng khóa này.',
+        );
+      }
+      return await _callOpenAi(
+        messages: [
+          {'role': 'user', 'content': 'Hello, reply with JSON: {"status": "ok"}'},
+        ],
+        responseFormat: {'type': 'json_object'},
+        apiKeyOverride: cleanKey,
+      );
+    }
+  }
+
   /// Gọi Gemini API và trả về text thô từ response
   Future<String> _callGemini({
     required List<Map<String, dynamic>> contents,
     double temperature = 0.2,
+    String? apiKeyOverride,
+    String? modelOverride,
   }) async {
-    final apiKey = await SecureStorageService.instance.getGeminiKey();
+    final apiKey = apiKeyOverride ?? await SecureStorageService.instance.getGeminiKey();
     if (apiKey == null || apiKey.trim().isEmpty) {
       throw Exception('Vui lòng nhập API Key Google Gemini trong phần Cài đặt (miễn phí tại Google AI Studio).');
     }
 
-    final model = await SecureStorageService.instance.getGeminiModel();
-    final url = Uri.parse(
+    var model = modelOverride ?? await SecureStorageService.instance.getGeminiModel();
+    if (model == 'gemini-flash-latest' ||
+        model.contains('3.8') ||
+        model.contains('2.5-flash-lite')) {
+      model = 'gemini-1.5-flash';
+    }
+
+    var url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
     );
 
@@ -321,12 +371,22 @@ Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ v�
       }
     });
 
-    final response = await http
+    var response = await http
         .post(url, headers: {'Content-Type': 'application/json'}, body: body)
         .timeout(
           _kApiTimeout,
           onTimeout: () => throw Exception('Kết nối Gemini bị timeout sau 30 giây. Hãy thử lại.'),
         );
+
+    // Fallback nếu model cũ bị 404
+    if (response.statusCode == 404 && model != 'gemini-1.5-flash') {
+      url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
+      );
+      response = await http
+          .post(url, headers: {'Content-Type': 'application/json'}, body: body)
+          .timeout(_kApiTimeout);
+    }
 
     if (response.statusCode != 200) {
       final errorJson = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -349,8 +409,9 @@ Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ v�
     Map<String, dynamic>? responseFormat,
     String model = 'gpt-4o-mini',
     double temperature = 0.2,
+    String? apiKeyOverride,
   }) async {
-    final apiKey = await SecureStorageService.instance.getOpenAiKey();
+    final apiKey = apiKeyOverride ?? await SecureStorageService.instance.getOpenAiKey();
     if (apiKey == null || apiKey.trim().isEmpty) {
       throw Exception('Vui lòng nhập API Key OpenAI trong phần Cài đặt.');
     }
