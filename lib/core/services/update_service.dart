@@ -27,13 +27,20 @@ class UpdateService {
   /// Khoảng thời gian tối thiểu giữa 2 lần auto-check (24 giờ)
   static const Duration _checkInterval = Duration(hours: 24);
 
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
+  final Dio _apiDio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 30),
     headers: {
       'Accept': 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
+  ));
+
+  final Dio _downloadDio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(minutes: 15),
+    followRedirects: true,
+    maxRedirects: 10,
   ));
 
   CancelToken? _cancelToken;
@@ -61,7 +68,7 @@ class UpdateService {
       final currentVersion = packageInfo.version; // e.g. "1.0.0"
 
       // Gọi GitHub API
-      final response = await _dio.get<Map<String, dynamic>>(_apiUrl);
+      final response = await _apiDio.get<Map<String, dynamic>>(_apiUrl);
       if (response.statusCode != 200 || response.data == null) return null;
 
       // Lưu thời điểm check
@@ -123,7 +130,7 @@ class UpdateService {
     // ignore: unused_local_variable
     DateTime lastTime = DateTime.now();
 
-    await _dio.download(
+    await _downloadDio.download(
       updateInfo.downloadUrl,
       savePath,
       cancelToken: _cancelToken,
@@ -146,7 +153,6 @@ class UpdateService {
           }
         }
       },
-      options: Options(receiveTimeout: const Duration(minutes: 10)),
     );
 
     return savePath;

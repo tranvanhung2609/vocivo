@@ -53,8 +53,13 @@ class AppUpdateInfo {
   }
 
   static List<int> _parseSemver(String version) {
-    // Loại bỏ prefix 'v' nếu có, ví dụ: "v1.2.0" → "1.2.0"
-    final clean = version.startsWith('v') ? version.substring(1) : version;
+    // Loại bỏ prefix 'v' hoặc 'V' nếu có, ví dụ: "v1.2.0" → "1.2.0"
+    var clean = version.trim();
+    if (clean.toLowerCase().startsWith('v')) {
+      clean = clean.substring(1);
+    }
+    // Loại bỏ build number (+...) và pre-release tag (-...)
+    clean = clean.split('+')[0].split('-')[0];
     final parts = clean.split('.').map((e) => int.tryParse(e) ?? 0).toList();
     // Đảm bảo luôn có đủ 3 phần
     while (parts.length < 3) {

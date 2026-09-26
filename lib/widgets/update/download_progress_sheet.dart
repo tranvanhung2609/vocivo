@@ -52,10 +52,9 @@ class _DownloadProgressSheetState extends ConsumerState<DownloadProgressSheet>
     final state = ref.watch(updateProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Tự động đóng sheet khi có lỗi hoặc về idle
+    // Tự động đóng sheet khi về idle (hủy hoặc reset)
     ref.listen<UpdateState>(updateProvider, (prev, next) {
-      if (next.status == UpdateStatus.error ||
-          next.status == UpdateStatus.idle) {
+      if (next.status == UpdateStatus.idle) {
         if (mounted) Navigator.of(context).pop();
       }
     });
@@ -108,6 +107,10 @@ class _DownloadProgressSheetState extends ConsumerState<DownloadProgressSheet>
   ) {
     if (state.status == UpdateStatus.installing) {
       return _buildInstallingState(isDark);
+    }
+
+    if (state.status == UpdateStatus.error) {
+      return _buildErrorState(context, ref, state, isDark);
     }
 
     // Trạng thái downloading hoặc download xong (chờ install)
@@ -320,6 +323,116 @@ class _DownloadProgressSheetState extends ConsumerState<DownloadProgressSheet>
               color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
             ),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(
+    BuildContext context,
+    WidgetRef ref,
+    UpdateState state,
+    bool isDark,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.errorRed.withAlpha(25),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.errorRed,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tải xuống thất bại',
+                      style: GoogleFonts.outfit(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: isDark
+                            ? AppColors.textDarkPrimary
+                            : AppColors.textLightPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.errorMessage ??
+                          'Không thể tải bản cập nhật. Vui lòng kiểm tra lại kết nối mạng.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: isDark
+                            ? AppColors.textDarkMuted
+                            : AppColors.textLightMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    ref.read(updateProvider.notifier).dismiss();
+                    Navigator.of(context).pop();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Đóng',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    ref.read(updateProvider.notifier).startDownload();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryEnglish,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Thử lại',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

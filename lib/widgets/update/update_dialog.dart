@@ -301,13 +301,18 @@ class UpdateDialog extends ConsumerWidget {
     );
   }
 
-  Future<void> _onUpdatePressed(BuildContext context, WidgetRef ref) async {
-    // Đóng dialog và mở progress sheet
-    Navigator.of(context).pop();
-    await ref.read(updateProvider.notifier).startDownload();
+  void _onUpdatePressed(BuildContext context, WidgetRef ref) {
+    // Lưu lại root navigator trước khi đóng dialog
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final scaffoldContext = rootNavigator.context;
 
-    if (context.mounted) {
-      DownloadProgressSheet.show(context);
-    }
+    // Đóng dialog thông báo update
+    rootNavigator.pop();
+
+    // Mở ngay bottom sheet tiến trình download để người dùng thấy thanh phần trăm
+    DownloadProgressSheet.show(scaffoldContext);
+
+    // Bắt đầu download bản cập nhật
+    ref.read(updateProvider.notifier).startDownload();
   }
 }
