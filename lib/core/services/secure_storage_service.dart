@@ -60,7 +60,12 @@ class SecureStorageService {
 
   Future<String> getGeminiModel() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_kGeminiModel) ?? 'gemini-1.5-flash';
+    final model = prefs.getString(_kGeminiModel) ?? 'gemini-flash-latest';
+    if (model == 'gemini-1.5-flash' || model == 'gemini-2.0-flash' || model == 'gemini-2.5-flash') {
+      await prefs.setString(_kGeminiModel, 'gemini-flash-latest');
+      return 'gemini-flash-latest';
+    }
+    return model;
   }
 
   Future<void> setGeminiModel(String model) async {

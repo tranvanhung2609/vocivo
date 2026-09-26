@@ -79,12 +79,42 @@ jobs:
       - name: Build Windows Desktop Release
         run: flutter build windows --release
 
-      - name: Package Windows Release as ZIP
+      - name: Package Windows Release as Portable ZIP
         shell: pwsh
         run: |
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath vocivo-windows-x64.zip
 
-      - name: Upload Windows Artifact
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+
+      - name: Extract Version for Installer
+        id: version_info
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag -or $tag -eq "") {
+            $tag = "${{ github.event.inputs.release_tag }}"
+          }
+          if (-not $tag -or $tag -eq "") {
+            $tag = "v1.0.0"
+          }
+          $ver = $tag -replace '^v',''
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Compile Inno Setup Installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.version_info.outputs.version }}" windows\installer\vocivo_setup.iss
+
+      - name: Upload Windows Setup Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vocivo-windows-setup
+          path: build\windows\installer\vocivo-windows-setup.exe
+
+      - name: Upload Windows ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
           name: vocivo-windows-zip
@@ -106,6 +136,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vocivo-android-apk
+          path: release-assets
+
+      - name: Download Windows Setup Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vocivo-windows-setup
           path: release-assets
 
       - name: Download Windows Zip Artifact
@@ -133,6 +169,7 @@ jobs:
           generate_release_notes: true
           files: |
             release-assets/vocivo-android-release.apk
+            release-assets/vocivo-windows-setup.exe
             release-assets/vocivo-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

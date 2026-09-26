@@ -9,8 +9,10 @@ class AppBreakpoints {
 
   // --- Screen width thresholds ---
   static const double mobile = 0;
+  static const double largeMobile = 480;   // Landscape phones / phablets
   static const double tablet = 600;
   static const double desktop = 1024;
+  static const double largeDesktop = 1280; // Wide desktop → expanded sidebar
 
   // --- Sidebar / nav rail widths ---
   static const double sidebarWidth = 260.0;

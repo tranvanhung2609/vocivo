@@ -17,7 +17,7 @@ class SettingsState {
     this.geminiApiKey = '',
     this.openAiApiKey = '',
     this.activeProvider = 'gemini',
-    this.geminiModel = 'gemini-1.5-flash',
+    this.geminiModel = 'gemini-flash-latest',
     this.themeMode = ThemeMode.system,
     this.hasCompletedOnboarding = false,
     this.isLoaded = false,

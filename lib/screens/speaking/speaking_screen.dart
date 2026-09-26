@@ -124,7 +124,10 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
 
   void _loadItems(VocabularyState vocabState) {
     if (_items.isEmpty) {
-      final list = [...vocabState.notebookItems];
+      var list = [...vocabState.notebookItems];
+      if (list.isEmpty) {
+        list = [...vocabState.searchResults];
+      }
       if (list.isEmpty) return;
       list.shuffle(Random());
       _items = list.take(15).toList();

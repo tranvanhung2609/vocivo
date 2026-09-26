@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants/app_breakpoints.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/vocabulary_item.dart';
 import '../../providers/language_mode_provider.dart';
@@ -10,7 +8,6 @@ import '../../providers/vocabulary_provider.dart';
 import '../../providers/srs_provider.dart';
 import '../../providers/ai_search_provider.dart';
 import '../widgets/ai_lookup_dialog.dart';
-import '../widgets/add_word_dialog.dart';
 import '../widgets/word_detail_panel.dart';
 import '../review/srs_review_screen.dart';
 import '../notebook/notebook_screen.dart';
@@ -22,7 +19,7 @@ import 'widgets/home_widgets.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation destination definitions (shared across all layout modes)
 // ─────────────────────────────────────────────────────────────────────────────
-enum _NavDest { search, review, speaking, notebook, progress, settings }
+enum _NavDest { search, review, notebook, speaking, progress, settings }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -61,7 +58,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      useSafeArea: true, // respects notch / home indicator
+      useSafeArea: true,
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.88,
         maxChildSize: 0.95,
@@ -71,7 +68,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (_, controller) => Container(
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.cardDark
+                ? const Color(0xFF1E293B)
                 : Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
@@ -101,42 +98,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Navigation helper ─────────────────────────────────────────
+  // ── Navigation helper with smooth fade transition ──────────────
   void _navigateTo(_NavDest dest) {
+    Widget? screen;
     switch (dest) {
       case _NavDest.review:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SrsReviewScreen()),
-        );
+        screen = const SrsReviewScreen();
         break;
       case _NavDest.speaking:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SpeakingScreen()),
-        );
+        screen = const SpeakingScreen();
         break;
       case _NavDest.notebook:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const NotebookScreen()),
-        );
+        screen = const NotebookScreen();
         break;
       case _NavDest.progress:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ProgressScreen()),
-        );
+        screen = const ProgressScreen();
         break;
       case _NavDest.settings:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SettingsScreen()),
-        );
+        screen = const SettingsScreen();
         break;
       case _NavDest.search:
-        break;
+        return;
     }
+    Navigator.push(
+      context,
+      _buildPageRoute(screen),
+    );
+  }
+
+  /// Smooth fade+slide transition for all page navigation
+  PageRouteBuilder<void> _buildPageRoute(Widget page) {
+    return PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 220),
+      reverseTransitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.03, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 
   void _navigateToIndex(int index) {
@@ -183,8 +191,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             )
           : isTablet
-              ? _buildTabletLayout(
-                  context, isZh, isDark, vocabState, srsState, currentLang)
+              ? HomeTabletLayout(
+                  isZh: isZh,
+                  isDark: isDark,
+                  vocabState: vocabState,
+                  srsState: srsState,
+                  currentLang: currentLang,
+                  searchController: _searchController,
+                  searchFocusNode: _searchFocusNode,
+                  tabletNavIndex: _desktopNavIndex,
+                  onSelectNavIndex: (i) => setState(() => _desktopNavIndex = i),
+                  onNavigateTo: _navigateToIndex,
+                  onTriggerAiLookup: _triggerAiLookup,
+                  onSelectWord: (item) {
+                    ref.read(vocabularyProvider.notifier).selectWord(item);
+                  },
+                )
               : HomeMobileLayout(
                   isZh: isZh,
                   isDark: isDark,
@@ -200,175 +222,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     _showWordDetailModal(item);
                   },
                 ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TABLET LAYOUT  (600–1024px)
-  // [NavigationRail] | [Master List] | [Detail Panel — if word selected]
-  // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildTabletLayout(
-    BuildContext context,
-    bool isZh,
-    bool isDark,
-    VocabularyState vocabState,
-    SrsState srsState,
-    String currentLang,
-  ) {
-    return Scaffold(
-      body: SafeArea(
-        child: Row(
-          children: [
-            // ── NavigationRail (compact icons) ────────────────────
-            NavigationRail(
-              selectedIndex: _desktopNavIndex,
-              onDestinationSelected: (i) {
-                if (i == 0) {
-                  setState(() => _desktopNavIndex = 0);
-                } else {
-                  _navigateTo(_NavDest.values[i]);
-                }
-              },
-              minWidth: AppBreakpoints.navRailWidth,
-              destinations: [
-                const NavigationRailDestination(
-                  icon: Icon(Icons.search_rounded),
-                  label: Text('Tra từ'),
-                ),
-                NavigationRailDestination(
-                  icon: Badge(
-                    label: Text('${srsState.totalDue}'),
-                    isLabelVisible: srsState.totalDue > 0,
-                    child: const Icon(Icons.style_outlined),
-                  ),
-                  selectedIcon: const Icon(Icons.style_rounded),
-                  label: const Text('Ôn tập'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.mic_none_rounded),
-                  selectedIcon: Icon(Icons.mic_rounded),
-                  label: Text('Luyện nói'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.bookmark_outline_rounded),
-                  selectedIcon: Icon(Icons.bookmark_rounded),
-                  label: Text('Sổ từ'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.emoji_events_outlined),
-                  selectedIcon: Icon(Icons.emoji_events_rounded),
-                  label: Text('Tiến độ'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings_rounded),
-                  label: Text('Cài đặt'),
-                ),
-              ],
-            ),
-
-            VerticalDivider(
-              width: 1,
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
-            ),
-
-            // ── Dual-pane: list + optional detail ────────────────
-            Expanded(
-              child: vocabState.selectedWord != null
-                  ? Row(
-                      children: [
-                        // Word list (constrained)
-                        SizedBox(
-                          width: 360,
-                          child: Column(
-                            children: [
-                              HomeSearchBar(
-                                searchController: _searchController,
-                                searchFocusNode: _searchFocusNode,
-                                isZh: isZh,
-                                isDark: isDark,
-                                vocabState: vocabState,
-                                currentLang: currentLang,
-                                onTriggerAiLookup: _triggerAiLookup,
-                                showDailyGoal: false,
-                              ),
-                              Expanded(
-                                child: HomeWordList(
-                                  vocabState: vocabState,
-                                  isZh: isZh,
-                                  isDark: isDark,
-                                  currentLang: currentLang,
-                                  isDesktop: true,
-                                  searchQuery: _searchController.text,
-                                  onSelectWord: (item) {
-                                    ref
-                                        .read(vocabularyProvider.notifier)
-                                        .selectWord(item);
-                                  },
-                                  onTriggerAiLookup: _triggerAiLookup,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        VerticalDivider(
-                          width: 1,
-                          color: isDark
-                              ? AppColors.borderDark
-                              : AppColors.borderLight,
-                        ),
-                        // Detail panel
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child:
-                                WordDetailPanel(item: vocabState.selectedWord!),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        HomeSearchBar(
-                          searchController: _searchController,
-                          searchFocusNode: _searchFocusNode,
-                          isZh: isZh,
-                          isDark: isDark,
-                          vocabState: vocabState,
-                          currentLang: currentLang,
-                          onTriggerAiLookup: _triggerAiLookup,
-                          showDailyGoal: false,
-                        ),
-                        Expanded(
-                          child: HomeWordList(
-                            vocabState: vocabState,
-                            isZh: isZh,
-                            isDark: isDark,
-                            currentLang: currentLang,
-                            isDesktop: true,
-                            searchQuery: _searchController.text,
-                            onSelectWord: (item) {
-                              ref
-                                  .read(vocabularyProvider.notifier)
-                                  .selectWord(item);
-                            },
-                            onTriggerAiLookup: _triggerAiLookup,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () =>
-            AddWordDialog.show(context, initialLanguage: currentLang),
-        backgroundColor: AppColors.primaryEnglish,
-        foregroundColor: Colors.white,
-        tooltip: 'Thêm từ mới',
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
     );
   }
 }

@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/ai_service.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/update_provider.dart';
+import '../../widgets/update/update_dialog.dart';
 import '../onboarding/onboarding_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -19,6 +23,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _obscureGemini = true;
   bool _obscureOpenAi = true;
   bool _isTestingKey = false;
+  bool _isCheckingUpdate = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -30,16 +36,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _geminiController.dispose();
     _openAiController.dispose();
     super.dispose();
   }
 
+  void _onKeyChanged(String val, bool isGemini) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+      if (isGemini) {
+        ref.read(settingsProvider.notifier).setGeminiApiKey(val.trim());
+      } else {
+        ref.read(settingsProvider.notifier).setOpenAiApiKey(val.trim());
+      }
+    });
+  }
+
+  Future<void> _saveKeyExplicitly(bool isGemini) async {
+    _debounceTimer?.cancel();
+    final text = isGemini ? _geminiController.text.trim() : _openAiController.text.trim();
+    if (isGemini) {
+      await ref.read(settingsProvider.notifier).setGeminiApiKey(text);
+    } else {
+      await ref.read(settingsProvider.notifier).setOpenAiApiKey(text);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Đã lưu ${isGemini ? "Google Gemini" : "OpenAI"} API Key thành công!'),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.successGreen,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _testApiKey() async {
+    final settings = ref.read(settingsProvider);
+    final isGemini = settings.activeProvider == 'gemini';
+    final keyToTest = isGemini ? _geminiController.text.trim() : _openAiController.text.trim();
+    final providerName = isGemini ? 'Google Gemini' : 'OpenAI';
+
+    if (keyToTest.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Vui lòng nhập API Key cho $providerName trước khi kiểm tra.')),
+            ],
+          ),
+          backgroundColor: AppColors.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isTestingKey = true);
     try {
-      // Save current input first
-      await ref.read(settingsProvider.notifier).setGeminiApiKey(_geminiController.text);
+      // Lưu API Key đang nhập vào bộ nhớ trước khi test
+      if (isGemini) {
+        await ref.read(settingsProvider.notifier).setGeminiApiKey(keyToTest);
+      } else {
+        await ref.read(settingsProvider.notifier).setOpenAiApiKey(keyToTest);
+      }
+
       final testRes = await AiService.instance.lookupWord(
         query: 'hello',
         languageCode: 'EN',
@@ -48,15 +121,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: AppColors.successGreen),
-                SizedBox(width: 8),
-                Text('Kết nối thành công!'),
+                const Icon(Icons.check_circle_rounded, color: AppColors.successGreen),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Kết nối $providerName thành công!')),
               ],
             ),
             content: Text(
-              'API Key hoạt động chính xác!\n\nAI đã phân tích từ "${testRes.word}": ${testRes.meaningVi}',
+              'API Key hoạt động chính xác!\n\n• Nhà cung cấp: $providerName\n• Mô hình: ${isGemini ? settings.geminiModel : "gpt-4o-mini"}\n• AI đã phân tích từ "${testRes.word}": ${testRes.meaningVi}',
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tuyệt vời')),
@@ -69,11 +142,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.error_outline_rounded, color: AppColors.errorRed),
-                SizedBox(width: 8),
-                Text('Kiểm tra thất bại'),
+                const Icon(Icons.error_outline_rounded, color: AppColors.errorRed),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Kiểm tra $providerName thất bại')),
               ],
             ),
             content: Text('Chi tiết lỗi:\n$e'),
@@ -92,6 +165,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SettingsState>(settingsProvider, (previous, next) {
+      if ((previous == null || !previous.isLoaded) && next.isLoaded) {
+        if (_geminiController.text.isEmpty && next.geminiApiKey.isNotEmpty) {
+          _geminiController.text = next.geminiApiKey;
+        }
+        if (_openAiController.text.isEmpty && next.openAiApiKey.isNotEmpty) {
+          _openAiController.text = next.openAiApiKey;
+        }
+      }
+    });
+
     final settings = ref.watch(settingsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -143,14 +227,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 labelText: 'Google Gemini API Key',
                 hintText: 'AIzaSy...',
                 prefixIcon: const Icon(Icons.key_rounded),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureGemini ? Icons.visibility_rounded : Icons.visibility_off_rounded),
-                  onPressed: () => setState(() => _obscureGemini = !_obscureGemini),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Dán từ clipboard',
+                      icon: const Icon(Icons.content_paste_rounded, size: 20),
+                      onPressed: () async {
+                        final data = await Clipboard.getData('text/plain');
+                        if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                          _geminiController.text = data.text!.trim();
+                          _saveKeyExplicitly(true);
+                        }
+                      },
+                    ),
+                    IconButton(
+                      tooltip: _obscureGemini ? 'Hiện khóa' : 'Ẩn khóa',
+                      icon: Icon(_obscureGemini ? Icons.visibility_rounded : Icons.visibility_off_rounded, size: 20),
+                      onPressed: () => setState(() => _obscureGemini = !_obscureGemini),
+                    ),
+                  ],
                 ),
               ),
-              onChanged: (val) {
-                ref.read(settingsProvider.notifier).setGeminiApiKey(val);
-              },
+              onChanged: (val) => _onKeyChanged(val, true),
+              onSubmitted: (val) => _saveKeyExplicitly(true),
             ),
             const SizedBox(height: 8),
 
@@ -179,15 +279,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             // Gemini Model dropdown
             DropdownButtonFormField<String>(
-              initialValue: settings.geminiModel,
+              initialValue: ['gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-3.8-flash'].contains(settings.geminiModel)
+                  ? settings.geminiModel
+                  : 'gemini-flash-latest',
               decoration: const InputDecoration(
                 labelText: 'Mô hình Gemini',
                 prefixIcon: Icon(Icons.tune_rounded),
               ),
               items: const [
-                DropdownMenuItem(value: 'gemini-1.5-flash', child: Text('Gemini 1.5 Flash (Khuyên dùng - Nhanh)')),
-                DropdownMenuItem(value: 'gemini-2.0-flash', child: Text('Gemini 2.0 Flash (Thế hệ mới)')),
-                DropdownMenuItem(value: 'gemini-2.5-flash', child: Text('Gemini 2.5 Flash')),
+                DropdownMenuItem(value: 'gemini-flash-latest', child: Text('Gemini Flash (Mặc định - Khuyên dùng)')),
+                DropdownMenuItem(value: 'gemini-2.5-flash-lite', child: Text('Gemini 2.5 Flash Lite (Tiết kiệm)')),
+                DropdownMenuItem(value: 'gemini-3.8-flash', child: Text('Gemini 3.8 Flash (Thế hệ mới)')),
               ],
               onChanged: (val) {
                 if (val != null) {
@@ -204,29 +306,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 labelText: 'OpenAI API Key',
                 hintText: 'sk-...',
                 prefixIcon: const Icon(Icons.key_rounded),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureOpenAi ? Icons.visibility_rounded : Icons.visibility_off_rounded),
-                  onPressed: () => setState(() => _obscureOpenAi = !_obscureOpenAi),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Dán từ clipboard',
+                      icon: const Icon(Icons.content_paste_rounded, size: 20),
+                      onPressed: () async {
+                        final data = await Clipboard.getData('text/plain');
+                        if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                          _openAiController.text = data.text!.trim();
+                          _saveKeyExplicitly(false);
+                        }
+                      },
+                    ),
+                    IconButton(
+                      tooltip: _obscureOpenAi ? 'Hiện khóa' : 'Ẩn khóa',
+                      icon: Icon(_obscureOpenAi ? Icons.visibility_rounded : Icons.visibility_off_rounded, size: 20),
+                      onPressed: () => setState(() => _obscureOpenAi = !_obscureOpenAi),
+                    ),
+                  ],
                 ),
               ),
-              onChanged: (val) {
-                ref.read(settingsProvider.notifier).setOpenAiApiKey(val);
-              },
+              onChanged: (val) => _onKeyChanged(val, false),
+              onSubmitted: (val) => _saveKeyExplicitly(false),
             ),
           ],
 
           const SizedBox(height: 16),
 
-          // Test API Key button
-          OutlinedButton.icon(
-            onPressed: _isTestingKey ? null : _testApiKey,
-            icon: _isTestingKey
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.network_check_rounded),
-            label: Text(_isTestingKey ? 'Đang kiểm tra kết nối...' : 'Kiểm tra hoạt động API Key'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-            ),
+          // Action buttons: Save & Test
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _saveKeyExplicitly(settings.activeProvider == 'gemini'),
+                  icon: const Icon(Icons.save_rounded, size: 18),
+                  label: const Text('Lưu API Key'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isTestingKey ? null : _testApiKey,
+                  icon: _isTestingKey
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.network_check_rounded, size: 18),
+                  label: Text(
+                    _isTestingKey
+                        ? 'Đang kiểm tra...'
+                        : 'Kiểm tra ${settings.activeProvider == "gemini" ? "Gemini" : "OpenAI"}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 28),
@@ -241,28 +381,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 14),
 
-          SegmentedButton<ThemeMode>(
-            segments: const [
-              ButtonSegment(
-                value: ThemeMode.system,
-                label: Text('Hệ thống'),
-                icon: Icon(Icons.brightness_auto_rounded),
+          // ── Visual Theme Picker (3-card) ────────────────────────
+          Row(
+            children: [
+              _buildThemeCard(
+                context: context,
+                isDark: isDark,
+                mode: ThemeMode.system,
+                currentMode: settings.themeMode,
+                icon: Icons.brightness_auto_rounded,
+                label: 'Hệ thống',
+                previewBg: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFF8FAFC), Color(0xFF1E293B)],
+                ),
+                onTap: () => ref.read(settingsProvider.notifier).setThemeMode(ThemeMode.system),
               ),
-              ButtonSegment(
-                value: ThemeMode.light,
-                label: Text('Sáng'),
-                icon: Icon(Icons.light_mode_rounded),
+              const SizedBox(width: 10),
+              _buildThemeCard(
+                context: context,
+                isDark: isDark,
+                mode: ThemeMode.light,
+                currentMode: settings.themeMode,
+                icon: Icons.light_mode_rounded,
+                label: 'Sáng',
+                previewBg: const LinearGradient(
+                  colors: [Color(0xFFF8FAFC), Color(0xFFF8FAFC)],
+                ),
+                onTap: () => ref.read(settingsProvider.notifier).setThemeMode(ThemeMode.light),
               ),
-              ButtonSegment(
-                value: ThemeMode.dark,
-                label: Text('Tối'),
-                icon: Icon(Icons.dark_mode_rounded),
+              const SizedBox(width: 10),
+              _buildThemeCard(
+                context: context,
+                isDark: isDark,
+                mode: ThemeMode.dark,
+                currentMode: settings.themeMode,
+                icon: Icons.dark_mode_rounded,
+                label: 'Tối',
+                previewBg: const LinearGradient(
+                  colors: [Color(0xFF0B1120), Color(0xFF0B1120)],
+                ),
+                onTap: () => ref.read(settingsProvider.notifier).setThemeMode(ThemeMode.dark),
               ),
             ],
-            selected: {settings.themeMode},
-            onSelectionChanged: (set) {
-              ref.read(settingsProvider.notifier).setThemeMode(set.first);
-            },
           ),
 
           const SizedBox(height: 28),
@@ -325,7 +487,284 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 28),
+          const Divider(),
+          const SizedBox(height: 20),
+
+          // Section 4: Cập nhật ứng dụng
+          _buildSectionHeader(
+            icon: Icons.system_update_rounded,
+            title: 'Cập nhật ứng dụng',
+            subtitle: 'Kiểm tra phiên bản mới nhất từ GitHub Releases',
+          ),
+          const SizedBox(height: 12),
+          _buildUpdateSection(isDark),
+
+          const SizedBox(height: 28),
         ],
+      ),
+    );
+  }
+
+  Widget _buildUpdateSection(bool isDark) {
+    final updateState = ref.watch(updateProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.cardDark : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryEnglish.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.system_update_rounded,
+                  color: AppColors.primaryEnglish,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Kiểm tra cập nhật',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isDark
+                            ? AppColors.textDarkPrimary
+                            : AppColors.textLightPrimary,
+                      ),
+                    ),
+                    Text(
+                      _getUpdateStatusText(updateState),
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: _getUpdateStatusColor(updateState, isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildUpdateStatusIcon(updateState),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _isCheckingUpdate ? null : () => _checkUpdateManually(),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryEnglish,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: _isCheckingUpdate
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 18),
+              label: Text(
+                _isCheckingUpdate ? 'Đang kiểm tra...' : 'Kiểm tra ngay',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getUpdateStatusText(UpdateState state) {
+    switch (state.status) {
+      case UpdateStatus.available:
+        return '✨ Có phiên bản mới: ${state.updateInfo?.latestVersion ?? ''}';
+      case UpdateStatus.noUpdate:
+        return '✅ Đang dùng phiên bản mới nhất';
+      case UpdateStatus.error:
+        return '⚠️ Không thể kiểm tra - Thử lại sau';
+      default:
+        return 'Nhấn để kiểm tra phiên bản mới';
+    }
+  }
+
+  Color _getUpdateStatusColor(UpdateState state, bool isDark) {
+    switch (state.status) {
+      case UpdateStatus.available:
+        return AppColors.primaryEnglish;
+      case UpdateStatus.noUpdate:
+        return AppColors.successGreen;
+      case UpdateStatus.error:
+        return AppColors.warningYellow;
+      default:
+        return isDark ? AppColors.textDarkMuted : AppColors.textLightMuted;
+    }
+  }
+
+  Widget _buildUpdateStatusIcon(UpdateState state) {
+    if (state.status == UpdateStatus.available) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.primaryEnglish.withAlpha(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.primaryEnglish.withAlpha(60)),
+        ),
+        child: Text(
+          'Mới',
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryEnglish,
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Future<void> _checkUpdateManually() async {
+    setState(() => _isCheckingUpdate = true);
+    try {
+      await ref.read(updateProvider.notifier).manualCheck();
+      final state = ref.read(updateProvider);
+      if (mounted && state.status == UpdateStatus.available) {
+        await UpdateDialog.show(context);
+      } else if (mounted && state.status == UpdateStatus.noUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline_rounded,
+                    color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Đang dùng phiên bản mới nhất rồi!')),
+              ],
+            ),
+            backgroundColor: AppColors.successGreen,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingUpdate = false);
+    }
+  }
+
+  /// Rich theme card with gradient preview, icon, and selected indicator
+  Widget _buildThemeCard({
+    required BuildContext context,
+    required bool isDark,
+    required ThemeMode mode,
+    required ThemeMode currentMode,
+    required IconData icon,
+    required String label,
+    required Gradient previewBg,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = currentMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primaryEnglish
+                  : (isDark ? AppColors.borderDark : AppColors.borderLight),
+              width: isSelected ? 2.0 : 1.5,
+            ),
+            color: isDark ? AppColors.surfaceDark2 : Colors.white,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primaryEnglish.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    )
+                  ]
+                : [],
+          ),
+          child: Column(
+            children: [
+              // Preview thumbnail
+              Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: previewBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight,
+                    width: 0.5,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    size: 22,
+                    color: mode == ThemeMode.dark
+                        ? Colors.white70
+                        : AppColors.primaryEnglish,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Label
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight:
+                      isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected
+                      ? AppColors.primaryEnglish
+                      : (isDark
+                          ? AppColors.textDarkSecondary
+                          : AppColors.textLightSecondary),
+                ),
+              ),
+              if (isSelected) ...[
+                const SizedBox(height: 4),
+                Container(
+                  width: 20,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryEnglish,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -25,6 +25,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String _selectedLanguageMode = 'BOTH'; // 'EN', 'ZH', 'BOTH'
   int _dailyTarget = 10; // 5, 10, 20
   final TextEditingController _apiKeyController = TextEditingController();
+  bool _obscureApiKey = true;
 
   @override
   void dispose() {
@@ -531,10 +532,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
           TextField(
             controller: _apiKeyController,
-            obscureText: true,
+            obscureText: _obscureApiKey,
             decoration: InputDecoration(
               hintText: 'Dán Gemini API Key tại đây (tùy chọn)...',
               prefixIcon: const Icon(Icons.key_rounded, size: 20),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Dán từ clipboard',
+                    icon: const Icon(Icons.content_paste_rounded, size: 20),
+                    onPressed: () async {
+                      final data = await Clipboard.getData('text/plain');
+                      if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                        _apiKeyController.text = data.text!.trim();
+                      }
+                    },
+                  ),
+                  IconButton(
+                    tooltip: _obscureApiKey ? 'Hiện khóa' : 'Ẩn khóa',
+                    icon: Icon(_obscureApiKey ? Icons.visibility_rounded : Icons.visibility_off_rounded, size: 20),
+                    onPressed: () => setState(() => _obscureApiKey = !_obscureApiKey),
+                  ),
+                ],
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(

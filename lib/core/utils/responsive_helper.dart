@@ -9,6 +9,12 @@ class ResponsiveHelper {
   static bool isMobile(BuildContext context) =>
       MediaQuery.sizeOf(context).width < AppBreakpoints.tablet;
 
+  /// Large phones in landscape or phablets (480–599px)
+  static bool isLargeMobile(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    return w >= AppBreakpoints.largeMobile && w < AppBreakpoints.tablet;
+  }
+
   static bool isTablet(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
     return w >= AppBreakpoints.tablet && w < AppBreakpoints.desktop;
@@ -17,10 +23,15 @@ class ResponsiveHelper {
   static bool isDesktop(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= AppBreakpoints.desktop;
 
+  /// Wide desktop (>= 1280px) — auto-expanded sidebar
+  static bool isLargeDesktop(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= AppBreakpoints.largeDesktop;
+
   /// Horizontal content padding adapted to screen size.
   static double horizontalMargin(BuildContext context) {
     if (isDesktop(context)) return AppBreakpoints.marginDesktop;
     if (isTablet(context)) return AppBreakpoints.marginTablet;
+    if (isLargeMobile(context)) return AppBreakpoints.marginTablet;
     return AppBreakpoints.marginMobile;
   }
 

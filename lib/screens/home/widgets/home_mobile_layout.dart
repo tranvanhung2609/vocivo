@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/vocabulary_item.dart';
@@ -11,7 +12,9 @@ import 'home_word_list.dart';
 
 /// Layout dành cho Mobile (< 600px)
 /// Tối ưu cho thao tác một tay, có bottom navigation bar và floating action button
-class HomeMobileLayout extends StatelessWidget {
+/// Nav index mapping (đồng nhất với _NavDest enum):
+///   0: search (home)  1: review  2: notebook  3: speaking  4: progress  5: settings
+class HomeMobileLayout extends StatefulWidget {
   const HomeMobileLayout({
     super.key,
     required this.isZh,
@@ -38,6 +41,40 @@ class HomeMobileLayout extends StatelessWidget {
   final void Function(VocabularyItem item) onSelectWord;
 
   @override
+  State<HomeMobileLayout> createState() => _HomeMobileLayoutState();
+}
+
+class _HomeMobileLayoutState extends State<HomeMobileLayout> {
+  // FAB hide-on-scroll state
+  bool _showFab = true;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final isScrollingDown = _scrollController.position.userScrollDirection ==
+        ScrollDirection.reverse;
+    final isScrollingUp = _scrollController.position.userScrollDirection ==
+        ScrollDirection.forward;
+    if (isScrollingDown && _showFab) {
+      setState(() => _showFab = false);
+    } else if (isScrollingUp && !_showFab) {
+      setState(() => _showFab = true);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
@@ -46,38 +83,47 @@ class HomeMobileLayout extends StatelessWidget {
         children: [
           // Thanh tìm kiếm và bộ lọc trên cùng
           HomeSearchBar(
-            searchController: searchController,
-            searchFocusNode: searchFocusNode,
-            isZh: isZh,
-            isDark: isDark,
-            vocabState: vocabState,
-            currentLang: currentLang,
-            onTriggerAiLookup: onTriggerAiLookup,
+            searchController: widget.searchController,
+            searchFocusNode: widget.searchFocusNode,
+            isZh: widget.isZh,
+            isDark: widget.isDark,
+            vocabState: widget.vocabState,
+            currentLang: widget.currentLang,
+            onTriggerAiLookup: widget.onTriggerAiLookup,
             showDailyGoal: true,
           ),
 
           // Danh sách từ vựng
           Expanded(
             child: HomeWordList(
-              vocabState: vocabState,
-              isZh: isZh,
-              isDark: isDark,
-              currentLang: currentLang,
+              vocabState: widget.vocabState,
+              isZh: widget.isZh,
+              isDark: widget.isDark,
+              currentLang: widget.currentLang,
               isDesktop: false,
-              searchQuery: searchController.text,
-              onSelectWord: onSelectWord,
-              onTriggerAiLookup: onTriggerAiLookup,
+              searchQuery: widget.searchController.text,
+              onSelectWord: widget.onSelectWord,
+              onTriggerAiLookup: widget.onTriggerAiLookup,
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () =>
-            AddWordDialog.show(context, initialLanguage: currentLang),
-        backgroundColor: AppColors.primaryEnglish,
-        foregroundColor: Colors.white,
-        tooltip: 'Thêm từ mới',
-        child: const Icon(Icons.add_rounded, size: 28),
+      floatingActionButton: AnimatedSlide(
+        offset: _showFab ? Offset.zero : const Offset(0, 2.5),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOut,
+        child: AnimatedOpacity(
+          opacity: _showFab ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          child: FloatingActionButton(
+            onPressed: () =>
+                AddWordDialog.show(context, initialLanguage: widget.currentLang),
+            backgroundColor: AppColors.primaryEnglish,
+            foregroundColor: Colors.white,
+            tooltip: 'Thêm từ mới',
+            child: const Icon(Icons.add_rounded, size: 28),
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildMobileBottomNav(),
@@ -98,20 +144,20 @@ class HomeMobileLayout extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.emoji_events_outlined),
           tooltip: 'Tiến độ & Thành tích',
-          onPressed: () => onNavigateTo(4), // Progress
+          onPressed: () => widget.onNavigateTo(4), // Progress = index 4
         ),
         // Add word button
         IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
           tooltip: 'Thêm từ mới',
           onPressed: () =>
-              AddWordDialog.show(context, initialLanguage: currentLang),
+              AddWordDialog.show(context, initialLanguage: widget.currentLang),
         ),
         // Settings
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           tooltip: 'Cài đặt',
-          onPressed: () => onNavigateTo(5), // Settings
+          onPressed: () => widget.onNavigateTo(5), // Settings = index 5
         ),
         const SizedBox(width: 4),
       ],
@@ -122,32 +168,45 @@ class HomeMobileLayout extends StatelessWidget {
     return SafeArea(
       child: Container(
         decoration: BoxDecoration(
-          color: (isDark ? AppColors.cardDark : Colors.white)
-              .withValues(alpha: 0.92),
+          color: (widget.isDark ? AppColors.cardDark : Colors.white)
+              .withValues(alpha: 0.96),
           border: Border(
             top: BorderSide(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              color: widget.isDark ? AppColors.borderDark : AppColors.borderLight,
+              width: 0.5,
             ),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: widget.isDark ? 0.3 : 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
         child: NavigationBar(
           selectedIndex: 0,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
+          // ─── Nav index mapping (đồng nhất với _NavDest enum) ───────────
+          // _NavDest: 0=search 1=review 2=notebook 3=speaking 4=progress 5=settings
+          // BottomNav: 0=search 1=review 2=notebook 3=speaking 4=settings
           onDestinationSelected: (idx) {
             switch (idx) {
+              case 0:
+                break; // Stay on home / search
               case 1:
-                onNavigateTo(1); // Review
+                widget.onNavigateTo(1); // Review
                 break;
               case 2:
-                onNavigateTo(2); // Speaking
+                widget.onNavigateTo(2); // Notebook ✅ (was broken before)
                 break;
               case 3:
-                onNavigateTo(3); // Notebook
+                widget.onNavigateTo(3); // Speaking ✅
                 break;
               case 4:
-                onNavigateTo(5); // Settings
+                widget.onNavigateTo(5); // Settings
                 break;
             }
           },
@@ -158,8 +217,8 @@ class HomeMobileLayout extends StatelessWidget {
             ),
             NavigationDestination(
               icon: Badge(
-                label: Text('${srsState.totalDue}'),
-                isLabelVisible: srsState.totalDue > 0,
+                label: Text('${widget.srsState.totalDue}'),
+                isLabelVisible: widget.srsState.totalDue > 0,
                 child: const Icon(Icons.style_outlined),
               ),
               selectedIcon: const Icon(Icons.style_rounded),
@@ -188,7 +247,7 @@ class HomeMobileLayout extends StatelessWidget {
 
   Widget _buildStreakBadge() {
     return InkWell(
-      onTap: () => onNavigateTo(4),
+      onTap: () => widget.onNavigateTo(4),
       borderRadius: BorderRadius.circular(16),
       child: Tooltip(
         message: 'Xem tiến độ & chuỗi học',
@@ -206,7 +265,7 @@ class HomeMobileLayout extends StatelessWidget {
                   color: AppColors.streakOrange, size: 16),
               const SizedBox(width: 4),
               Text(
-                '${srsState.streak}',
+                '${widget.srsState.streak}',
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.w800,
                   fontSize: 13,

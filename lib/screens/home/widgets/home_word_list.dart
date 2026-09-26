@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/vocabulary_item.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../../widgets/skeleton_loader.dart';
 import '../../widgets/word_card.dart';
 
-/// Danh sách hiển thị từ vựng kèm trạng thái trống/loading
+/// Danh sách hiển thị từ vựng kèm skeleton loading và empty states đẹp
 class HomeWordList extends StatelessWidget {
   const HomeWordList({
     super.key,
@@ -30,18 +31,18 @@ class HomeWordList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ── Loading state: shimmer skeleton ──────────────────────────
     if (vocabState.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primaryEnglish),
-      );
+      return const WordListSkeleton(count: 5);
     }
 
+    // ── Empty state ───────────────────────────────────────────────
     if (vocabState.searchResults.isEmpty) {
       return _buildEmptyState(context);
     }
 
+    // ── Word list ─────────────────────────────────────────────────
     return ListView.builder(
-      // Padding dưới để không bị che bởi FAB hoặc bottom navigation bar
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
@@ -65,63 +66,155 @@ class HomeWordList extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final bool isSearchEmpty = searchQuery.isEmpty;
+    final textColor =
+        isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary;
+    final mutedColor =
+        isDark ? AppColors.textDarkMuted : AppColors.textLightMuted;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: const BoxDecoration(
-                color: AppColors.primaryEnglishLight,
-                shape: BoxShape.circle,
+            // ── Illustration container ────────────────────────────
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.elasticOut,
+              builder: (_, scale, child) => Transform.scale(
+                scale: scale,
+                child: child,
               ),
-              child: const Icon(
-                Icons.search_off_rounded,
-                size: 40,
-                color: AppColors.primaryEnglish,
+              child: Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryEnglishLight,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryEnglish.withValues(alpha: 0.2),
+                      blurRadius: 24,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isSearchEmpty
+                      ? Icons.library_books_outlined
+                      : Icons.search_off_rounded,
+                  size: 44,
+                  color: AppColors.primaryEnglish,
+                ),
               ),
             ),
-            const SizedBox(height: 14),
+
+            const SizedBox(height: 20),
+
+            // ── Title ─────────────────────────────────────────────
             Text(
-              searchQuery.isEmpty
+              isSearchEmpty
                   ? 'Chưa có từ nào trong danh mục này'
-                  : 'Không tìm thấy "$searchQuery" offline',
+                  : 'Không tìm thấy "$searchQuery"',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: isDark
-                    ? AppColors.textDarkPrimary
-                    : AppColors.textLightPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: textColor,
               ),
             ),
-            const SizedBox(height: 6),
+
+            const SizedBox(height: 8),
+
+            // ── Subtitle ──────────────────────────────────────────
             Text(
-              'Nhấn ✨ để AI phân tích âm Hán-Việt, ngữ cảnh và ví dụ!',
+              isSearchEmpty
+                  ? 'Thêm từ mới hoặc chuyển sang danh mục khác để bắt đầu học.'
+                  : 'Hãy để AI phân tích âm Hán-Việt, ngữ cảnh và ví dụ cho bạn!',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 13,
-                color: isDark
-                    ? AppColors.textDarkMuted
-                    : AppColors.textLightMuted,
+                fontSize: 13.5,
+                height: 1.5,
+                color: mutedColor,
               ),
             ),
-            if (searchQuery.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
+
+            const SizedBox(height: 24),
+
+            // ── CTA buttons ───────────────────────────────────────
+            if (!isSearchEmpty) ...[
+              FilledButton.icon(
                 onPressed: () => onTriggerAiLookup(searchQuery, currentLang),
                 icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                label: Text('Phân tích "$searchQuery" bằng AI'),
-                style: ElevatedButton.styleFrom(
+                label: Text('AI phân tích "$searchQuery"'),
+                style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primaryEnglish,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
+              ),
+            ] else ...[
+              // Hint chips
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildHintChip(
+                      icon: Icons.add_rounded,
+                      label: 'Thêm từ mới',
+                      isDark: isDark),
+                  _buildHintChip(
+                      icon: Icons.import_export_rounded,
+                      label: 'Import danh sách',
+                      isDark: isDark),
+                ],
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHintChip({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark3 : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon,
+              size: 14,
+              color: isDark
+                  ? AppColors.textDarkSecondary
+                  : AppColors.textLightSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark
+                  ? AppColors.textDarkSecondary
+                  : AppColors.textLightSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }

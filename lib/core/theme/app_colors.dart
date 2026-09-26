@@ -102,12 +102,15 @@ class AppColors {
   // ────────────────────────────────────────────────────────────────
   // NEUTRAL — DARK MODE
   // ────────────────────────────────────────────────────────────────
-  static const Color bgDark           = Color(0xFF0F172A);
-  static const Color cardDark         = Color(0xFF1E293B);
-  static const Color textDarkPrimary  = Color(0xFFF8FAFC);
+  static const Color bgDark           = Color(0xFF0B1120); // Slightly deeper base
+  static const Color cardDark         = Color(0xFF1E293B); // z=2 elevated
+  static const Color surfaceDark1     = Color(0xFF162032); // z=1 (subtle lift)
+  static const Color surfaceDark2     = Color(0xFF1E293B); // z=2 (= cardDark)
+  static const Color surfaceDark3     = Color(0xFF243349); // z=3 (dropdowns, popovers)
+  static const Color textDarkPrimary  = Color(0xFFF1F5F9); // Slightly warmer
   static const Color textDarkSecondary = Color(0xFFCBD5E1);
   static const Color textDarkMuted    = Color(0xFF64748B);
-  static const Color borderDark       = Color(0xFF334155);
+  static const Color borderDark       = Color(0xFF2E4060); // Slightly brighter border
 
   // ────────────────────────────────────────────────────────────────
   // ELEVATION SHADOWS (design spec level system)
@@ -139,6 +142,30 @@ class AppColors {
       blurRadius: 8,
       offset: const Offset(0, 4),
       spreadRadius: -2,
+    ),
+  ];
+
+  // Dark mode shadows — deeper for better card separation
+  static List<BoxShadow> shadowLevel1Dark = [
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: 0.22),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
+      spreadRadius: -1,
+    ),
+  ];
+
+  static List<BoxShadow> shadowLevel2Dark = [
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: 0.35),
+      blurRadius: 20,
+      offset: const Offset(0, 8),
+      spreadRadius: -4,
+    ),
+    BoxShadow(
+      color: const Color(0xFF10B981).withValues(alpha: 0.06),
+      blurRadius: 24,
+      offset: const Offset(0, 4),
     ),
   ];
 
