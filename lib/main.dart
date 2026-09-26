@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/foundation.dart';
@@ -63,11 +64,23 @@ class VocivoApp extends ConsumerStatefulWidget {
 }
 
 class _VocivoAppState extends ConsumerState<VocivoApp> {
+  Timer? _autoCheckTimer;
+
   @override
   void initState() {
     super.initState();
     // Auto-check update sau khi app khởi động xong (delay 3s tránh block UI)
-    Future.delayed(const Duration(seconds: 3), _autoCheckUpdate);
+    _autoCheckTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        _autoCheckUpdate();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoCheckTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _autoCheckUpdate() async {

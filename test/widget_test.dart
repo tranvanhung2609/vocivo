@@ -11,5 +11,9 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(VocivoApp), findsOneWidget);
+
+    // Xử lý các timers pending (nếu có) trước khi kết thúc test
+    await tester.pump(const Duration(seconds: 4));
   });
 }
+
