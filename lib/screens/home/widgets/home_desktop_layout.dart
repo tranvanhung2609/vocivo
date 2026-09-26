@@ -6,6 +6,7 @@ import '../../../models/vocabulary_item.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../providers/srs_provider.dart';
 import '../../../widgets/vocivo_logo.dart';
+import '../../curriculum/roadmap_view.dart';
 import '../../widgets/language_switcher.dart';
 import '../../widgets/add_word_dialog.dart';
 import '../../widgets/word_detail_panel.dart';
@@ -84,46 +85,50 @@ class _HomeDesktopLayoutState extends State<HomeDesktopLayout> {
               child: _buildSidebar(context, activeColor),
             ),
 
-            // ── Cột 2: Master List ────────────────────────────────
-            SizedBox(
-              width: AppBreakpoints.masterListWidth,
-              child: Column(
-                children: [
-                  HomeSearchBar(
-                    searchController: widget.searchController,
-                    searchFocusNode: widget.searchFocusNode,
-                    isZh: widget.isZh,
-                    isDark: widget.isDark,
-                    vocabState: widget.vocabState,
-                    currentLang: widget.currentLang,
-                    onTriggerAiLookup: widget.onTriggerAiLookup,
-                    showDailyGoal: true,
-                  ),
-                  Expanded(
-                    child: HomeWordList(
-                      vocabState: widget.vocabState,
+            if (widget.desktopNavIndex == 0)
+              const Expanded(child: RoadmapView())
+            else ...[
+              // ── Cột 2: Master List ────────────────────────────────
+              SizedBox(
+                width: AppBreakpoints.masterListWidth,
+                child: Column(
+                  children: [
+                    HomeSearchBar(
+                      searchController: widget.searchController,
+                      searchFocusNode: widget.searchFocusNode,
                       isZh: widget.isZh,
                       isDark: widget.isDark,
+                      vocabState: widget.vocabState,
                       currentLang: widget.currentLang,
-                      isDesktop: true,
-                      searchQuery: widget.searchController.text,
-                      onSelectWord: widget.onSelectWord,
                       onTriggerAiLookup: widget.onTriggerAiLookup,
+                      showDailyGoal: true,
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: HomeWordList(
+                        vocabState: widget.vocabState,
+                        isZh: widget.isZh,
+                        isDark: widget.isDark,
+                        currentLang: widget.currentLang,
+                        isDesktop: true,
+                        searchQuery: widget.searchController.text,
+                        onSelectWord: widget.onSelectWord,
+                        onTriggerAiLookup: widget.onTriggerAiLookup,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            VerticalDivider(
-              width: 1,
-              color: _isDark ? AppColors.borderDark : AppColors.borderLight,
-            ),
+              VerticalDivider(
+                width: 1,
+                color: _isDark ? AppColors.borderDark : AppColors.borderLight,
+              ),
 
-            // ── Cột 3: Detail Panel ───────────────────────────────
-            Expanded(
-              child: _buildDetailPanel(),
-            ),
+              // ── Cột 3: Detail Panel ───────────────────────────────
+              Expanded(
+                child: _buildDetailPanel(),
+              ),
+            ],
           ],
         ),
       ),
@@ -264,8 +269,8 @@ class _HomeDesktopLayoutState extends State<HomeDesktopLayout> {
 
           // ── Navigation items ─────────────────────────────────────
           _buildNavItem(
-            icon: Icons.search_rounded,
-            label: 'Tra cứu từ vựng',
+            icon: Icons.alt_route_rounded,
+            label: 'Lộ trình học tập',
             isSelected: widget.desktopNavIndex == 0,
             badge: null,
             onTap: () => widget.onSelectNavIndex(0),

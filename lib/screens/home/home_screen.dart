@@ -19,7 +19,7 @@ import 'widgets/home_widgets.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation destination definitions (shared across all layout modes)
 // ─────────────────────────────────────────────────────────────────────────────
-enum _NavDest { search, review, notebook, speaking, progress, settings }
+enum _NavDest { roadmap, review, notebook, speaking, progress, settings }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -117,7 +117,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case _NavDest.settings:
         screen = const SettingsScreen();
         break;
-      case _NavDest.search:
+      case _NavDest.roadmap:
         return;
     }
     Navigator.push(

@@ -31,7 +31,10 @@ enum SpeakingPhase {
 }
 
 class SpeakingScreen extends ConsumerStatefulWidget {
-  const SpeakingScreen({super.key});
+  final List<VocabularyItem>? initialItems;
+  final String? title;
+
+  const SpeakingScreen({super.key, this.initialItems, this.title});
 
   @override
   ConsumerState<SpeakingScreen> createState() => _SpeakingScreenState();
@@ -124,6 +127,11 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
 
   void _loadItems(VocabularyState vocabState) {
     if (_items.isEmpty) {
+      if (widget.initialItems != null && widget.initialItems!.isNotEmpty) {
+        _items = [...widget.initialItems!];
+        _currentIndex = 0;
+        return;
+      }
       var list = [...vocabState.notebookItems];
       if (list.isEmpty) {
         list = [...vocabState.searchResults];

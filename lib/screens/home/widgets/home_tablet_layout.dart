@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/vocabulary_item.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../providers/srs_provider.dart';
+import '../../curriculum/roadmap_view.dart';
 import '../../widgets/add_word_dialog.dart';
 import '../../widgets/word_detail_panel.dart';
 import 'home_search_bar.dart';
@@ -61,8 +62,9 @@ class HomeTabletLayout extends StatelessWidget {
               useIndicator: true,
               destinations: [
                 const NavigationRailDestination(
-                  icon: Icon(Icons.search_rounded),
-                  label: Text('Tra từ'),
+                  icon: Icon(Icons.alt_route_rounded),
+                  selectedIcon: Icon(Icons.alt_route_rounded),
+                  label: Text('Lộ trình'),
                 ),
                 NavigationRailDestination(
                   icon: Badge(
@@ -103,81 +105,83 @@ class HomeTabletLayout extends StatelessWidget {
 
             // ── Dual-pane: list + optional detail ────────────────
             Expanded(
-              child: vocabState.selectedWord != null
-                  ? Row(
-                      children: [
-                        // Word list (constrained)
-                        SizedBox(
-                          width: 360,
-                          child: Column(
-                            children: [
-                              HomeSearchBar(
-                                searchController: searchController,
-                                searchFocusNode: searchFocusNode,
+              child: tabletNavIndex == 0
+                  ? const RoadmapView()
+                  : (vocabState.selectedWord != null
+                      ? Row(
+                          children: [
+                            // Word list (constrained)
+                            SizedBox(
+                              width: 360,
+                              child: Column(
+                                children: [
+                                  HomeSearchBar(
+                                    searchController: searchController,
+                                    searchFocusNode: searchFocusNode,
+                                    isZh: isZh,
+                                    isDark: isDark,
+                                    vocabState: vocabState,
+                                    currentLang: currentLang,
+                                    onTriggerAiLookup: onTriggerAiLookup,
+                                    showDailyGoal: false,
+                                  ),
+                                  Expanded(
+                                    child: HomeWordList(
+                                      vocabState: vocabState,
+                                      isZh: isZh,
+                                      isDark: isDark,
+                                      currentLang: currentLang,
+                                      isDesktop: true,
+                                      searchQuery: searchController.text,
+                                      onSelectWord: onSelectWord,
+                                      onTriggerAiLookup: onTriggerAiLookup,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            VerticalDivider(
+                              width: 1,
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.borderLight,
+                            ),
+                            // Detail panel
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child:
+                                    WordDetailPanel(item: vocabState.selectedWord!),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            HomeSearchBar(
+                              searchController: searchController,
+                              searchFocusNode: searchFocusNode,
+                              isZh: isZh,
+                              isDark: isDark,
+                              vocabState: vocabState,
+                              currentLang: currentLang,
+                              onTriggerAiLookup: onTriggerAiLookup,
+                              showDailyGoal: false,
+                            ),
+                            Expanded(
+                              child: HomeWordList(
+                                vocabState: vocabState,
                                 isZh: isZh,
                                 isDark: isDark,
-                                vocabState: vocabState,
                                 currentLang: currentLang,
+                                isDesktop: true,
+                                searchQuery: searchController.text,
+                                onSelectWord: onSelectWord,
                                 onTriggerAiLookup: onTriggerAiLookup,
-                                showDailyGoal: false,
                               ),
-                              Expanded(
-                                child: HomeWordList(
-                                  vocabState: vocabState,
-                                  isZh: isZh,
-                                  isDark: isDark,
-                                  currentLang: currentLang,
-                                  isDesktop: true,
-                                  searchQuery: searchController.text,
-                                  onSelectWord: onSelectWord,
-                                  onTriggerAiLookup: onTriggerAiLookup,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        VerticalDivider(
-                          width: 1,
-                          color: isDark
-                              ? AppColors.borderDark
-                              : AppColors.borderLight,
-                        ),
-                        // Detail panel
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child:
-                                WordDetailPanel(item: vocabState.selectedWord!),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        HomeSearchBar(
-                          searchController: searchController,
-                          searchFocusNode: searchFocusNode,
-                          isZh: isZh,
-                          isDark: isDark,
-                          vocabState: vocabState,
-                          currentLang: currentLang,
-                          onTriggerAiLookup: onTriggerAiLookup,
-                          showDailyGoal: false,
-                        ),
-                        Expanded(
-                          child: HomeWordList(
-                            vocabState: vocabState,
-                            isZh: isZh,
-                            isDark: isDark,
-                            currentLang: currentLang,
-                            isDesktop: true,
-                            searchQuery: searchController.text,
-                            onSelectWord: onSelectWord,
-                            onTriggerAiLookup: onTriggerAiLookup,
-                          ),
-                        ),
-                      ],
-                    ),
+                            ),
+                          ],
+                        )),
             ),
           ],
         ),

@@ -6,14 +6,12 @@ import '../../../models/vocabulary_item.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../providers/srs_provider.dart';
 import '../../../widgets/vocivo_logo.dart';
-import '../../widgets/add_word_dialog.dart';
-import 'home_search_bar.dart';
-import 'home_word_list.dart';
+import '../../curriculum/roadmap_view.dart';
+import '../../curriculum/widgets/ai_generate_deck_dialog.dart';
+import '../../widgets/ai_lookup_dialog.dart';
 
 /// Layout dành cho Mobile (< 600px)
-/// Tối ưu cho thao tác một tay, có bottom navigation bar và floating action button
-/// Nav index mapping (đồng nhất với _NavDest enum):
-///   0: search (home)  1: review  2: notebook  3: speaking  4: progress  5: settings
+/// Tối ưu cho thao tác một tay, lấy Lộ Trình Học Tập (Roadmap) làm trung tâm
 class HomeMobileLayout extends StatefulWidget {
   const HomeMobileLayout({
     super.key,
@@ -79,35 +77,7 @@ class _HomeMobileLayoutState extends State<HomeMobileLayout> {
     return Scaffold(
       extendBody: true,
       appBar: _buildMobileAppBar(context),
-      body: Column(
-        children: [
-          // Thanh tìm kiếm và bộ lọc trên cùng
-          HomeSearchBar(
-            searchController: widget.searchController,
-            searchFocusNode: widget.searchFocusNode,
-            isZh: widget.isZh,
-            isDark: widget.isDark,
-            vocabState: widget.vocabState,
-            currentLang: widget.currentLang,
-            onTriggerAiLookup: widget.onTriggerAiLookup,
-            showDailyGoal: true,
-          ),
-
-          // Danh sách từ vựng
-          Expanded(
-            child: HomeWordList(
-              vocabState: widget.vocabState,
-              isZh: widget.isZh,
-              isDark: widget.isDark,
-              currentLang: widget.currentLang,
-              isDesktop: false,
-              searchQuery: widget.searchController.text,
-              onSelectWord: widget.onSelectWord,
-              onTriggerAiLookup: widget.onTriggerAiLookup,
-            ),
-          ),
-        ],
-      ),
+      body: const RoadmapView(),
       floatingActionButton: AnimatedSlide(
         offset: _showFab ? Offset.zero : const Offset(0, 2.5),
         duration: const Duration(milliseconds: 220),
@@ -115,13 +85,22 @@ class _HomeMobileLayoutState extends State<HomeMobileLayout> {
         child: AnimatedOpacity(
           opacity: _showFab ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 200),
-          child: FloatingActionButton(
-            onPressed: () =>
-                AddWordDialog.show(context, initialLanguage: widget.currentLang),
-            backgroundColor: AppColors.primaryEnglish,
+          child: FloatingActionButton.extended(
+            onPressed: () => AiGenerateDeckDialog.show(
+              context,
+              languageCode: widget.currentLang,
+            ),
+            backgroundColor: widget.isZh ? const Color(0xFFEF4444) : AppColors.primaryEnglish,
             foregroundColor: Colors.white,
-            tooltip: 'Thêm từ mới',
-            child: const Icon(Icons.add_rounded, size: 28),
+            elevation: 4,
+            icon: const Icon(Icons.auto_awesome, size: 20),
+            label: Text(
+              'Tạo Bộ Thẻ AI',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+              ),
+            ),
           ),
         ),
       ),
@@ -141,17 +120,18 @@ class _HomeMobileLayoutState extends State<HomeMobileLayout> {
         _buildStreakBadge(),
         const SizedBox(width: 4),
         // Progress & Achievements button
+        // Tra từ AI
+        IconButton(
+          icon: const Icon(Icons.search_rounded),
+          tooltip: 'Tra cứu AI',
+          onPressed: () =>
+              AiLookupDialog.show(context, query: '', languageCode: widget.currentLang),
+        ),
+        // Progress & Achievements button
         IconButton(
           icon: const Icon(Icons.emoji_events_outlined),
           tooltip: 'Tiến độ & Thành tích',
           onPressed: () => widget.onNavigateTo(4), // Progress = index 4
-        ),
-        // Add word button
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline_rounded),
-          tooltip: 'Thêm từ mới',
-          onPressed: () =>
-              AddWordDialog.show(context, initialLanguage: widget.currentLang),
         ),
         // Settings
         IconButton(
@@ -190,20 +170,20 @@ class _HomeMobileLayoutState extends State<HomeMobileLayout> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           // ─── Nav index mapping (đồng nhất với _NavDest enum) ───────────
-          // _NavDest: 0=search 1=review 2=notebook 3=speaking 4=progress 5=settings
-          // BottomNav: 0=search 1=review 2=notebook 3=speaking 4=settings
+          // _NavDest: 0=roadmap 1=review 2=notebook 3=speaking 4=progress 5=settings
+          // BottomNav: 0=roadmap 1=review 2=notebook 3=speaking 4=settings
           onDestinationSelected: (idx) {
             switch (idx) {
               case 0:
-                break; // Stay on home / search
+                break; // Stay on home / roadmap
               case 1:
                 widget.onNavigateTo(1); // Review
                 break;
               case 2:
-                widget.onNavigateTo(2); // Notebook ✅ (was broken before)
+                widget.onNavigateTo(2); // Notebook
                 break;
               case 3:
-                widget.onNavigateTo(3); // Speaking ✅
+                widget.onNavigateTo(3); // Speaking
                 break;
               case 4:
                 widget.onNavigateTo(5); // Settings
@@ -212,8 +192,9 @@ class _HomeMobileLayoutState extends State<HomeMobileLayout> {
           },
           destinations: [
             const NavigationDestination(
-              icon: Icon(Icons.search_rounded),
-              label: 'Tra từ',
+              icon: Icon(Icons.alt_route_rounded),
+              selectedIcon: Icon(Icons.alt_route_rounded),
+              label: 'Lộ trình',
             ),
             NavigationDestination(
               icon: Badge(

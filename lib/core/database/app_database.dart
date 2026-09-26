@@ -7,7 +7,9 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import '../../models/vocabulary_item.dart';
 import '../../models/srs_progress.dart';
 import '../../models/tag_model.dart';
+import '../../models/curriculum_model.dart';
 import '../constants/seed_data.dart';
+import '../constants/curriculum_seed_data.dart';
 
 class AppDatabase {
   static final AppDatabase instance = AppDatabase._internal();
@@ -28,6 +30,9 @@ class AppDatabase {
     'streak_count': '1',
     'last_active_date': DateTime.now().toIso8601String(),
   };
+  final List<CurriculumUnit> _inMemoryUnits = [];
+  final Map<String, bool> _inMemoryUnitProgress = {};
+  final Map<String, int> _inMemoryUnitScores = {};
 
   void _initInMemoryFallback() {
     if (_inMemoryVocab.isNotEmpty) return;
@@ -43,6 +48,30 @@ class AppDatabase {
         nextReviewDate: DateTime.now(),
       );
       idCounter++;
+    }
+
+    final allStages = [
+      ...CurriculumSeedData.englishStages,
+      ...CurriculumSeedData.chineseStages,
+    ];
+    for (final stage in allStages) {
+      for (final unit in stage.units) {
+        final wordsWithIds = <VocabularyItem>[];
+        for (final word in unit.words) {
+          final wordWithId = word.copyWith(id: idCounter);
+          _inMemoryVocab.add(wordWithId);
+          _inMemorySrs[idCounter] = SrsProgress(
+            vocabId: idCounter,
+            repetitionCount: 0,
+            intervalDays: 1,
+            easeFactor: 2.5,
+            nextReviewDate: DateTime.now(),
+          );
+          wordsWithIds.add(wordWithId);
+          idCounter++;
+        }
+        _inMemoryUnits.add(unit.copyWith(words: wordsWithIds));
+      }
     }
   }
 
@@ -70,7 +99,7 @@ class AppDatabase {
       databaseFactory = databaseFactoryFfiWeb;
       return await openDatabase(
         'vocivo_web.db',
-        version: 2,
+        version: 3,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -102,7 +131,7 @@ class AppDatabase {
 
     return await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -124,6 +153,11 @@ class AppDatabase {
           UNIQUE(date)
         )
       ''');
+    }
+    // v2 → v3: thêm bảng lộ trình học (learning_units, unit_vocabulary, unit_progress)
+    if (oldVersion < 3) {
+      await _createCurriculumTables(db);
+      await _seedDefaultCurriculum(db);
     }
   }
 
@@ -215,6 +249,76 @@ class AppDatabase {
 
     await db.insert('settings', {'key': 'streak_count', 'value': '1'});
     await db.insert('settings', {'key': 'last_active_date', 'value': DateTime.now().toIso8601String()});
+
+    await _createCurriculumTables(db);
+    await _seedDefaultCurriculum(db);
+  }
+
+  Future<void> _createCurriculumTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS learning_units (
+        id TEXT PRIMARY KEY,
+        stage_id TEXT NOT NULL,
+        stage_title TEXT NOT NULL,
+        language_code TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        icon_name TEXT,
+        level TEXT,
+        is_ai_generated INTEGER DEFAULT 0,
+        order_index INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS unit_vocabulary (
+        unit_id TEXT NOT NULL,
+        vocab_id INTEGER NOT NULL,
+        PRIMARY KEY (unit_id, vocab_id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS unit_progress (
+        unit_id TEXT PRIMARY KEY,
+        is_completed INTEGER DEFAULT 0,
+        completed_at DATETIME,
+        last_score INTEGER DEFAULT 0
+      )
+    ''');
+  }
+
+  Future<void> _seedDefaultCurriculum(Database db) async {
+    final countRes = await db.rawQuery('SELECT COUNT(*) as count FROM learning_units');
+    final count = (countRes.first['count'] as int?) ?? 0;
+    if (count > 0) return;
+
+    final allStages = [
+      ...CurriculumSeedData.englishStages,
+      ...CurriculumSeedData.chineseStages,
+    ];
+
+    for (final stage in allStages) {
+      for (final unit in stage.units) {
+        await db.insert('learning_units', unit.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+        for (final word in unit.words) {
+          final vocabId = await db.insert('vocabulary', word.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+          if (vocabId > 0) {
+            await db.insert('srs_progress', {
+              'vocab_id': vocabId,
+              'repetition_count': 0,
+              'interval_days': 1,
+              'ease_factor': 2.5,
+              'next_review_date': DateTime.now().toIso8601String(),
+              'last_reviewed_at': null,
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+            await db.insert('unit_vocabulary', {
+              'unit_id': unit.id,
+              'vocab_id': vocabId,
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          }
+        }
+      }
+    }
   }
 
   // -------------------------------------------------------------
@@ -625,4 +729,170 @@ class AppDatabase {
       orderBy: 'date ASC',
     );
   }
+
+  // -------------------------------------------------------------
+  // CURRICULUM UNITS & PROGRESS
+  // -------------------------------------------------------------
+
+  /// Lưu một Unit mới (do AI tạo hoặc người dùng thêm) kèm danh sách từ vựng
+  Future<void> saveLearningUnit(CurriculumUnit unit, List<VocabularyItem> items) async {
+    final db = await database;
+    if (db == null) {
+      int nextId = _inMemoryVocab.isEmpty
+          ? 1
+          : (_inMemoryVocab.map((e) => e.id ?? 0).reduce((a, b) => a > b ? a : b) + 1);
+      final savedWords = <VocabularyItem>[];
+      for (final word in items) {
+        final withId = word.copyWith(id: nextId);
+        _inMemoryVocab.add(withId);
+        _inMemorySrs[nextId] = SrsProgress(
+          vocabId: nextId,
+          repetitionCount: 0,
+          intervalDays: 1,
+          easeFactor: 2.5,
+          nextReviewDate: DateTime.now(),
+        );
+        savedWords.add(withId);
+        nextId++;
+      }
+      final newUnit = unit.copyWith(words: savedWords);
+      _inMemoryUnits.removeWhere((u) => u.id == unit.id);
+      _inMemoryUnits.add(newUnit);
+      return;
+    }
+
+    await db.transaction((txn) async {
+      await txn.insert(
+        'learning_units',
+        unit.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      for (final item in items) {
+        int vocabId;
+        if (item.id != null) {
+          vocabId = item.id!;
+        } else {
+          vocabId = await txn.insert('vocabulary', item.toMap());
+          await txn.insert('srs_progress', {
+            'vocab_id': vocabId,
+            'repetition_count': 0,
+            'interval_days': 1,
+            'ease_factor': 2.5,
+            'next_review_date': DateTime.now().toIso8601String(),
+            'last_reviewed_at': null,
+          });
+        }
+        await txn.insert('unit_vocabulary', {
+          'unit_id': unit.id,
+          'vocab_id': vocabId,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    });
+  }
+
+  /// Lấy toàn bộ Units theo ngôn ngữ ('EN' hoặc 'ZH'), kèm danh sách từ và trạng thái hoàn thành
+  Future<List<CurriculumUnit>> getLearningUnits(String languageCode) async {
+    final db = await database;
+    if (db == null) {
+      return _inMemoryUnits
+          .where((u) => u.languageCode.toUpperCase() == languageCode.toUpperCase())
+          .map((u) {
+            final isDone = _inMemoryUnitProgress[u.id] ?? u.isCompleted;
+            final score = _inMemoryUnitScores[u.id] ?? u.lastScore;
+            return u.copyWith(isCompleted: isDone, lastScore: score);
+          })
+          .toList();
+    }
+
+    // Đảm bảo default curriculum đã có trong db
+    await _seedDefaultCurriculum(db);
+
+    final unitRows = await db.query(
+      'learning_units',
+      where: 'language_code = ?',
+      whereArgs: [languageCode.toUpperCase()],
+      orderBy: 'order_index ASC, created_at ASC',
+    );
+
+    final List<CurriculumUnit> results = [];
+    for (final row in unitRows) {
+      final unitId = row['id'] as String;
+
+      // Get progress
+      final progressRows = await db.query(
+        'unit_progress',
+        where: 'unit_id = ?',
+        whereArgs: [unitId],
+        limit: 1,
+      );
+      bool isCompleted = false;
+      int? lastScore;
+      DateTime? completedAt;
+      if (progressRows.isNotEmpty) {
+        isCompleted = (progressRows.first['is_completed'] as int? ?? 0) == 1;
+        lastScore = progressRows.first['last_score'] as int?;
+        final dtStr = progressRows.first['completed_at'] as String?;
+        if (dtStr != null) completedAt = DateTime.tryParse(dtStr);
+      }
+
+      // Get vocabulary items
+      final vocabRows = await db.rawQuery('''
+        SELECT v.* FROM vocabulary v
+        INNER JOIN unit_vocabulary uv ON v.id = uv.vocab_id
+        WHERE uv.unit_id = ?
+        ORDER BY v.id ASC
+      ''', [unitId]);
+
+      final words = vocabRows.map((r) => VocabularyItem.fromMap(r)).toList();
+
+      results.add(CurriculumUnit.fromMap(
+        row,
+        words: words,
+        isCompleted: isCompleted,
+        lastScore: lastScore,
+        completedAt: completedAt,
+      ));
+    }
+    return results;
+  }
+
+  /// Cập nhật tiến độ hoàn thành và điểm số của Unit
+  Future<void> updateUnitProgress(String unitId, {required bool isCompleted, int? score}) async {
+    final db = await database;
+    if (db == null) {
+      _inMemoryUnitProgress[unitId] = isCompleted;
+      if (score != null) _inMemoryUnitScores[unitId] = score;
+      return;
+    }
+
+    await db.insert(
+      'unit_progress',
+      {
+        'unit_id': unitId,
+        'is_completed': isCompleted ? 1 : 0,
+        'completed_at': isCompleted ? DateTime.now().toIso8601String() : null,
+        'last_score': score ?? 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Xóa một Unit do AI tạo
+  Future<void> deleteLearningUnit(String unitId) async {
+    final db = await database;
+    if (db == null) {
+      _inMemoryUnits.removeWhere((u) => u.id == unitId);
+      _inMemoryUnitProgress.remove(unitId);
+      _inMemoryUnitScores.remove(unitId);
+      return;
+    }
+
+    await db.transaction((txn) async {
+      await txn.delete('unit_vocabulary', where: 'unit_id = ?', whereArgs: [unitId]);
+      await txn.delete('unit_progress', where: 'unit_id = ?', whereArgs: [unitId]);
+      await txn.delete('learning_units', where: 'id = ?', whereArgs: [unitId]);
+    });
+  }
 }
+

@@ -1,0 +1,921 @@
+import '../../models/curriculum_model.dart';
+import '../../models/vocabulary_item.dart';
+
+class CurriculumSeedData {
+  // ===========================================================================
+  // ENGLISH CURRICULUM STAGES & UNITS
+  // ===========================================================================
+  static List<LearningStage> get englishStages => [
+    LearningStage(
+      id: 'en_stage_1',
+      languageCode: 'EN',
+      title: 'Chặng 1: Nền Tảng & Giao Tiếp Cơ Bản',
+      subtitle: 'Khởi đầu tự tin với các chủ đề thiết yếu hàng ngày',
+      level: 'A1 - Starter',
+      badgeColor: 0xFF10B981, // Emerald
+      iconName: 'waving_hand',
+      orderIndex: 1,
+      units: [
+        CurriculumUnit(
+          id: 'en_u1',
+          stageId: 'en_stage_1',
+          stageTitle: 'Chặng 1: Nền Tảng & Giao Tiếp Cơ Bản',
+          languageCode: 'EN',
+          title: 'Chào Hỏi & Giới Thiệu Bản Thân',
+          description: 'Cách chào hỏi lịch sự, tự giới thiệu tên tuổi, quê quán và nghề nghiệp.',
+          iconName: 'handshake',
+          level: 'A1',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'greet',
+              phonetic: '/ɡriːt/',
+              meaningVi: 'Chào hỏi, đón tiếp',
+              wordType: 'verb',
+              level: 'A1',
+              collocations: ['greet someone warmly', 'greet with a smile'],
+              notes: 'Từ cơ bản dùng khi gặp gỡ ai đó',
+              examples: [
+                ExampleSentence(
+                  text: 'She greeted all her guests with a warm smile.',
+                  vi: 'Cô ấy chào đón tất cả các vị khách bằng một nụ cười ấm áp.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'introduce',
+              phonetic: '/ˌɪn.trəˈdjuːs/',
+              meaningVi: 'Giới thiệu',
+              wordType: 'verb',
+              level: 'A1',
+              collocations: ['introduce yourself', 'introduce a friend'],
+              notes: 'Dùng khi làm quen người mới',
+              examples: [
+                ExampleSentence(
+                  text: 'Allow me to introduce my colleague, John.',
+                  vi: 'Cho phép tôi được giới thiệu đồng nghiệp của mình, John.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'hometown',
+              phonetic: '/ˈhəʊm.taʊn/',
+              meaningVi: 'Quê hương, nơi chôn nhau cắt rốn',
+              wordType: 'noun',
+              level: 'A1',
+              collocations: ['my hometown', 'visit hometown'],
+              notes: 'Nơi sinh ra hoặc lớn lên',
+              examples: [
+                ExampleSentence(
+                  text: 'Danang is my beloved hometown.',
+                  vi: 'Đà Nẵng là quê hương yêu dấu của tôi.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'occupation',
+              phonetic: '/ˌɒk.jəˈpeɪ.ʃən/',
+              meaningVi: 'Nghề nghiệp, công việc',
+              wordType: 'noun',
+              level: 'A1',
+              collocations: ['current occupation', 'state your occupation'],
+              notes: 'Từ trang trọng hơn "job"',
+              examples: [
+                ExampleSentence(
+                  text: 'Please write down your name and occupation on the form.',
+                  vi: 'Vui lòng ghi họ tên và nghề nghiệp của bạn vào mẫu đơn.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'pleasure',
+              phonetic: '/ˈpleʒ.ər/',
+              meaningVi: 'Niềm vinh hạnh, sự hân hạnh',
+              wordType: 'noun',
+              level: 'A1',
+              collocations: ['my pleasure', 'it is a pleasure to meet you'],
+              notes: 'Dùng khi đáp lại lời cảm ơn hoặc chào hỏi',
+              examples: [
+                ExampleSentence(
+                  text: 'It is a great pleasure to meet you today.',
+                  vi: 'Rất hân hạnh được gặp bạn hôm nay.',
+                ),
+              ],
+            ),
+          ],
+        ),
+        CurriculumUnit(
+          id: 'en_u2',
+          stageId: 'en_stage_1',
+          stageTitle: 'Chặng 1: Nền Tảng & Giao Tiếp Cơ Bản',
+          languageCode: 'EN',
+          title: 'Gia Đình & Các Mối Quan Hệ',
+          description: 'Từ vựng miêu tả thành viên gia đình, bạn bè và tình cảm gắn kết.',
+          iconName: 'family_restroom',
+          level: 'A1',
+          orderIndex: 2,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'sibling',
+              phonetic: '/ˈsɪb.lɪŋ/',
+              meaningVi: 'Anh chị em ruột',
+              wordType: 'noun',
+              level: 'A1',
+              collocations: ['older sibling', 'have any siblings'],
+              notes: 'Từ chỉ chung cả anh, chị hoặc em',
+              examples: [
+                ExampleSentence(
+                  text: 'I have two siblings: an older brother and a younger sister.',
+                  vi: 'Tôi có hai anh chị em: một anh trai và một em gái.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'relative',
+              phonetic: '/ˈrel.ə.tɪv/',
+              meaningVi: 'Họ hàng, người thân',
+              wordType: 'noun',
+              level: 'A1',
+              collocations: ['close relatives', 'distant relatives'],
+              notes: 'Chỉ những người trong họ tộc',
+              examples: [
+                ExampleSentence(
+                  text: 'We often visit our relatives during holidays.',
+                  vi: 'Chúng tôi thường đi thăm họ hàng vào các dịp lễ.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'supportive',
+              phonetic: '/səˈpɔː.tɪv/',
+              meaningVi: 'Luôn ủng hộ, động viên, nâng đỡ',
+              wordType: 'adjective',
+              level: 'A2',
+              collocations: ['supportive family', 'supportive friends'],
+              notes: 'Đặc tính gia đình ấm áp',
+              examples: [
+                ExampleSentence(
+                  text: 'My parents are always supportive of my decisions.',
+                  vi: 'Cha mẹ luôn ủng hộ mọi quyết định của tôi.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'gathering',
+              phonetic: '/ˈɡæð.ər.ɪŋ/',
+              meaningVi: 'Buổi tụ họp, sum vầy',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['family gathering', 'social gathering'],
+              notes: 'Buổi gặp gỡ đông người ấm cúng',
+              examples: [
+                ExampleSentence(
+                  text: 'We have a family gathering every Sunday evening.',
+                  vi: 'Gia đình tôi sum họp vào mỗi tối Chủ Nhật.',
+                ),
+              ],
+            ),
+          ],
+        ),
+        CurriculumUnit(
+          id: 'en_u3',
+          stageId: 'en_stage_1',
+          stageTitle: 'Chặng 1: Nền Tảng & Giao Tiếp Cơ Bản',
+          languageCode: 'EN',
+          title: 'Ẩm Thực & Bữa Ăn Hằng Ngày',
+          description: 'Gọi món, gọi đồ uống và cách nhận xét hương vị món ăn.',
+          iconName: 'restaurant',
+          level: 'A1',
+          orderIndex: 3,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'delicious',
+              phonetic: '/dɪˈlɪʃ.əs/',
+              meaningVi: 'Thơm ngon, tuyệt hảo',
+              wordType: 'adjective',
+              level: 'A1',
+              collocations: ['delicious meal', 'smell delicious'],
+              notes: 'Khen ngợi đồ ăn ngon miệng',
+              examples: [
+                ExampleSentence(
+                  text: 'This traditional soup is absolutely delicious.',
+                  vi: 'Món súp truyền thống này thực sự rất ngon.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'ingredient',
+              phonetic: '/ɪnˈɡriː.di.ənt/',
+              meaningVi: 'Nguyên liệu, thành phần món ăn',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['fresh ingredients', 'key ingredient'],
+              notes: 'Các thành phần để nấu ăn',
+              examples: [
+                ExampleSentence(
+                  text: 'The chef uses only fresh and organic ingredients.',
+                  vi: 'Đầu bếp chỉ sử dụng các nguyên liệu tươi và hữu cơ.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'appetite',
+              phonetic: '/ˈæp.ə.taɪt/',
+              meaningVi: 'Sự ngon miệng, khẩu vị ăn uống',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['good appetite', 'lose one\'s appetite'],
+              notes: 'Cảm giác thèm ăn',
+              examples: [
+                ExampleSentence(
+                  text: 'The fresh air gave us a healthy appetite.',
+                  vi: 'Không khí trong lành giúp chúng tôi ăn uống ngon miệng hơn.',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+    LearningStage(
+      id: 'en_stage_2',
+      languageCode: 'EN',
+      title: 'Chặng 2: Giao Tiếp Đời Sống & Du Lịch',
+      subtitle: 'Mua sắm, hỏi đường, đặt phòng và xử lý tình huống thực tế',
+      level: 'A2 - Elementary',
+      badgeColor: 0xFF0284C7, // Sky Blue
+      iconName: 'flight_takeoff',
+      orderIndex: 2,
+      units: [
+        CurriculumUnit(
+          id: 'en_u4',
+          stageId: 'en_stage_2',
+          stageTitle: 'Chặng 2: Giao Tiếp Đời Sống & Du Lịch',
+          languageCode: 'EN',
+          title: 'Mua Sắm, Trả Giá & Thanh Toán',
+          description: 'Cách hỏi giá, mặc cả lịch sự, xin hóa đơn và đổi trả hàng.',
+          iconName: 'shopping_bag',
+          level: 'A2',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'affordable',
+              phonetic: '/əˈfɔː.də.bəl/',
+              meaningVi: 'Giá cả phải chăng, vừa túi tiền',
+              wordType: 'adjective',
+              level: 'A2',
+              collocations: ['affordable price', 'highly affordable'],
+              notes: 'Rẻ nhưng mang tính chất hợp lý',
+              examples: [
+                ExampleSentence(
+                  text: 'They offer high-quality clothing at very affordable prices.',
+                  vi: 'Họ cung cấp quần áo chất lượng cao với giá rất phải chăng.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'receipt',
+              phonetic: '/rɪˈsiːt/',
+              meaningVi: 'Biên lai, hóa đơn mua hàng',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['keep the receipt', 'issue a receipt'],
+              notes: 'Chú ý chữ "p" là âm câm trong phát âm',
+              examples: [
+                ExampleSentence(
+                  text: 'Please keep your receipt in case you want an exchange.',
+                  vi: 'Vui lòng giữ lại hóa đơn phòng trường hợp bạn muốn đổi hàng.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'discount',
+              phonetic: '/ˈdɪs.kaʊnt/',
+              meaningVi: 'Mức giảm giá, chiết khấu',
+              wordType: 'noun / verb',
+              level: 'A2',
+              collocations: ['offer a discount', '20% discount'],
+              notes: 'Dùng rất phổ biến khi đi mua sắm',
+              examples: [
+                ExampleSentence(
+                  text: 'Is there any discount if I pay in cash?',
+                  vi: 'Có được giảm giá nếu tôi thanh toán bằng tiền mặt không?',
+                ),
+              ],
+            ),
+          ],
+        ),
+        CurriculumUnit(
+          id: 'en_u5',
+          stageId: 'en_stage_2',
+          stageTitle: 'Chặng 2: Giao Tiếp Đời Sống & Du Lịch',
+          languageCode: 'EN',
+          title: 'Sân Bay, Khách Sạn & Chỉ Đường',
+          description: 'Thủ tục check-in, hỏi phương tiện di chuyển và nhận phòng.',
+          iconName: 'hotel',
+          level: 'A2',
+          orderIndex: 2,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'reservation',
+              phonetic: '/ˌrez.əˈveɪ.ʃən/',
+              meaningVi: 'Sự đặt trước (phòng, bàn, vé)',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['make a reservation', 'confirm reservation'],
+              notes: 'Tương đương booking',
+              examples: [
+                ExampleSentence(
+                  text: 'I would like to make a reservation for two nights.',
+                  vi: 'Tôi muốn đặt phòng cho hai đêm.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'luggage',
+              phonetic: '/ˈlʌɡ.ɪdʒ/',
+              meaningVi: 'Hành lý mang theo khi đi lại',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['hand luggage', 'lost luggage'],
+              notes: 'Danh từ không đếm được',
+              examples: [
+                ExampleSentence(
+                  text: 'You are allowed one piece of carry-on luggage.',
+                  vi: 'Bạn được phép mang theo một kiện hành lý xách tay.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'direction',
+              phonetic: '/daɪˈrek.ʃən/',
+              meaningVi: 'Phương hướng, lời chỉ dẫn đường đi',
+              wordType: 'noun',
+              level: 'A2',
+              collocations: ['ask for directions', 'give directions'],
+              notes: 'Dùng khi bị lạc hoặc tìm đường',
+              examples: [
+                ExampleSentence(
+                  text: 'Excuse me, could you give me directions to the subway station?',
+                  vi: 'Xin lỗi, bạn có thể chỉ đường cho tôi tới ga tàu điện ngầm không?',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+    LearningStage(
+      id: 'en_stage_3',
+      languageCode: 'EN',
+      title: 'Chặng 3: Tiếng Anh Công Sở & Công Việc',
+      subtitle: 'Phỏng vấn, trao đổi email, hội họp và thuyết trình chuyên nghiệp',
+      level: 'B1 - Intermediate',
+      badgeColor: 0xFF8B5CF6, // Purple
+      iconName: 'work',
+      orderIndex: 3,
+      units: [
+        CurriculumUnit(
+          id: 'en_u6',
+          stageId: 'en_stage_3',
+          stageTitle: 'Chặng 3: Tiếng Anh Công Sở & Công Việc',
+          languageCode: 'EN',
+          title: 'Phỏng Vấn Tuyển Dụng & Sự Nghiệp',
+          description: 'Cách trả lời điểm mạnh, kinh nghiệm và mục tiêu nghề nghiệp.',
+          iconName: 'badge',
+          level: 'B1',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'qualification',
+              phonetic: '/ˌkwɒl.ɪ.fɪˈkeɪ.ʃən/',
+              meaningVi: 'Bằng cấp, năng lực chuyên môn đạt chuẩn',
+              wordType: 'noun',
+              level: 'B1',
+              collocations: ['relevant qualifications', 'academic qualification'],
+              notes: 'Chứng chỉ, bằng cấp phù hợp với vị trí công việc',
+              examples: [
+                ExampleSentence(
+                  text: 'She has all the necessary qualifications for this senior role.',
+                  vi: 'Cô ấy có đầy đủ bằng cấp và năng lực cần thiết cho vị trí cấp cao này.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'collaborate',
+              phonetic: '/kəˈlæb.ə.reɪt/',
+              meaningVi: 'Hợp tác, phối hợp cùng làm việc',
+              wordType: 'verb',
+              level: 'B1',
+              collocations: ['collaborate with colleagues', 'collaborate on a project'],
+              notes: 'Kỹ năng làm việc nhóm quan trọng',
+              examples: [
+                ExampleSentence(
+                  text: 'Our team collaborates closely with international designers.',
+                  vi: 'Đội ngũ của chúng tôi phối hợp chặt chẽ với các nhà thiết kế quốc tế.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'deadline',
+              phonetic: '/ˈded.laɪn/',
+              meaningVi: 'Hạn chót hoàn thành công việc',
+              wordType: 'noun',
+              level: 'B1',
+              collocations: ['meet the deadline', 'tight deadline'],
+              notes: 'Thời hạn bắt buộc phải nộp sản phẩm',
+              examples: [
+                ExampleSentence(
+                  text: 'We worked overtime to meet the tight deadline.',
+                  vi: 'Chúng tôi đã tăng ca để kịp hoàn thành hạn chót gấp rút.',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+    LearningStage(
+      id: 'en_stage_4',
+      languageCode: 'EN',
+      title: 'Chặng 4: Thành Ngữ & Phản Xạ Nâng Cao',
+      subtitle: 'Làm chủ idioms, biểu đạt ý kiến và tranh luận tự nhiên như người bản xứ',
+      level: 'B2 - Upper Intermediate',
+      badgeColor: 0xFFF59E0B, // Amber
+      iconName: 'psychology',
+      orderIndex: 4,
+      units: [
+        CurriculumUnit(
+          id: 'en_u7',
+          stageId: 'en_stage_4',
+          stageTitle: 'Chặng 4: Thành Ngữ & Phản Xạ Nâng Cao',
+          languageCode: 'EN',
+          title: 'Thành Ngữ Thông Dụng Trong Đời Sống',
+          description: 'Các cụm idiom quen thuộc giúp lời nói tự nhiên và giàu sắc thái.',
+          iconName: 'auto_awesome',
+          level: 'B2',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'resilient',
+              phonetic: '/rɪˈzɪl.jənt/',
+              meaningVi: 'Kiên cường, mau phục hồi sau nghịch cảnh',
+              wordType: 'adjective',
+              level: 'B2',
+              collocations: ['highly resilient', 'resilient economy'],
+              notes: 'Từ gốc Latin mang nghĩa bật nảy trở lại',
+              examples: [
+                ExampleSentence(
+                  text: 'Local communities showed resilient spirit after the natural disaster.',
+                  vi: 'Cộng đồng địa phương đã thể hiện tinh thần kiên cường sau thảm họa thiên tai.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'EN',
+              word: 'perspective',
+              phonetic: '/pəˈspek.tɪv/',
+              meaningVi: 'Góc nhìn, quan điểm thấu đáo',
+              wordType: 'noun',
+              level: 'B2',
+              collocations: ['from my perspective', 'broader perspective'],
+              notes: 'Cách tư duy và nhìn nhận vấn đề',
+              examples: [
+                ExampleSentence(
+                  text: 'Travelling helps broaden your perspective on the world.',
+                  vi: 'Đi du lịch giúp mở rộng góc nhìn của bạn về thế giới.',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+  ];
+
+  // ===========================================================================
+  // CHINESE CURRICULUM STAGES & UNITS
+  // ===========================================================================
+  static List<LearningStage> get chineseStages => [
+    LearningStage(
+      id: 'zh_stage_1',
+      languageCode: 'ZH',
+      title: 'Chặng 1: Nhập Môn Bính Âm & Nét Chữ',
+      subtitle: 'Làm quen bảng chữ cái Pinyin, 4 thanh điệu và chào hỏi sơ cấp',
+      level: 'Pinyin & Nhập Môn',
+      badgeColor: 0xFFEF4444, // Red
+      iconName: 'translate',
+      orderIndex: 1,
+      units: [
+        CurriculumUnit(
+          id: 'zh_u1',
+          stageId: 'zh_stage_1',
+          stageTitle: 'Chặng 1: Nhập Môn Bính Âm & Nét Chữ',
+          languageCode: 'ZH',
+          title: 'Chào Hỏi Sơ Cấp & Xưng Hô',
+          description: 'Những câu mở đầu kinh điển khi gặp gỡ người Trung Quốc.',
+          iconName: 'waving_hand',
+          level: 'HSK 1',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '你好',
+              phonetic: 'nǐ hǎo',
+              hanViet: 'Nhĩ hảo',
+              meaningVi: 'Xin chào',
+              wordType: 'phrase',
+              level: 'HSK 1',
+              notes: '你 (bạn) + 好 (tốt lành). Khi 2 thanh 3 đi liền nhau, từ đầu đọc thành thanh 2 (ní hǎo).',
+              examples: [
+                ExampleSentence(
+                  text: '你好！很高兴认识你。',
+                  pinyin: 'Nǐ hǎo! Hěn gāoxìng rènshí nǐ.',
+                  vi: 'Xin chào! Rất vui được quen biết bạn.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '谢谢',
+              phonetic: 'xièxie',
+              hanViet: 'Tạ tạ',
+              meaningVi: 'Cảm ơn',
+              wordType: 'verb',
+              level: 'HSK 1',
+              notes: 'Từ sau đọc nhẹ (thanh nhẹ - khinh thanh).',
+              examples: [
+                ExampleSentence(
+                  text: '非常感谢你的帮助！',
+                  pinyin: 'Fēicháng gǎnxiè nǐ de bāngzhù!',
+                  vi: 'Vô cùng cảm ơn sự giúp đỡ của bạn!',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '不客气',
+              phonetic: 'bú kèqi',
+              hanViet: 'Bất khách khí',
+              meaningVi: 'Đừng khách sáo, không có chi',
+              wordType: 'phrase',
+              level: 'HSK 1',
+              notes: 'Đáp lại lời cảm ơn một cách lịch sự.',
+              examples: [
+                ExampleSentence(
+                  text: '不用客气，举手之劳而已。',
+                  pinyin: 'Búyòng kèqi, jǔshǒuzhīláo éryǐ.',
+                  vi: 'Đừng khách sáo, chuyện nhỏ tiện tay thôi mà.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '再见',
+              phonetic: 'zàijiàn',
+              hanViet: 'Tái kiến',
+              meaningVi: 'Tạm biệt, hẹn gặp lại',
+              wordType: 'verb / phrase',
+              level: 'HSK 1',
+              notes: '再 (lại, một lần nữa) + 见 (gặp mặt).',
+              examples: [
+                ExampleSentence(
+                  text: '明天见，路上小心，再见！',
+                  pinyin: 'Míngtiān jiàn, lùshang xiǎoxīn, zàijiàn!',
+                  vi: 'Ngày mai gặp, đi đường cẩn thận nhé, tạm biệt!',
+                ),
+              ],
+            ),
+          ],
+        ),
+        CurriculumUnit(
+          id: 'zh_u2',
+          stageId: 'zh_stage_1',
+          stageTitle: 'Chặng 1: Nhập Môn Bính Âm & Nét Chữ',
+          languageCode: 'ZH',
+          title: 'Đại Từ Nhân Xưng & Tự Giới Thiệu',
+          description: 'Tôi, bạn, anh ấy, cô ấy và cách giới thiệu tên tuổi quốc tịch.',
+          iconName: 'badge',
+          level: 'HSK 1',
+          orderIndex: 2,
+          words: [
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '名字',
+              phonetic: 'míngzi',
+              hanViet: 'Danh tự',
+              meaningVi: 'Tên, họ tên',
+              wordType: 'noun',
+              level: 'HSK 1',
+              notes: '名 (tên gọi) + 字 (chữ viết).',
+              examples: [
+                ExampleSentence(
+                  text: '你叫什么名字？',
+                  pinyin: 'Nǐ jiào shénme míngzi?',
+                  vi: 'Bạn tên là gì?',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '中国人',
+              phonetic: 'zhōngguó rén',
+              hanViet: 'Trung Quốc nhân',
+              meaningVi: 'Người Trung Quốc',
+              wordType: 'noun',
+              level: 'HSK 1',
+              notes: 'Tên quốc gia + 人 (nhân = người).',
+              examples: [
+                ExampleSentence(
+                  text: '他是中国人，也是我的汉语老师。',
+                  pinyin: 'Tā shì zhōngguó rén, yě shì wǒ de hànyǔ lǎoshī.',
+                  vi: 'Anh ấy là người Trung Quốc, cũng là thầy giáo tiếng Trung của tôi.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '越南',
+              phonetic: 'yuènán',
+              hanViet: 'Việt Nam',
+              meaningVi: 'Nước Việt Nam',
+              wordType: 'noun',
+              level: 'HSK 1',
+              notes: '越 (Vượt, việt) + 南 (phương Nam).',
+              examples: [
+                ExampleSentence(
+                  text: '我是越南人，我来自河内。',
+                  pinyin: 'Wǒ shì yuènán rén, wǒ láizì hénèi.',
+                  vi: 'Tôi là người Việt Nam, tôi đến từ Hà Nội.',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+    LearningStage(
+      id: 'zh_stage_2',
+      languageCode: 'ZH',
+      title: 'Chặng 2: HSK 1 - Cốt Lõi Đời Thường',
+      subtitle: 'Nắm vững 150 từ vựng căn bản nhất trong sinh hoạt, ăn uống và đi lại',
+      level: 'HSK 1',
+      badgeColor: 0xFF10B981, // Emerald
+      iconName: 'local_cafe',
+      orderIndex: 2,
+      units: [
+        CurriculumUnit(
+          id: 'zh_u3',
+          stageId: 'zh_stage_2',
+          stageTitle: 'Chặng 2: HSK 1 - Cốt Lõi Đời Thường',
+          languageCode: 'ZH',
+          title: 'Ăn Uống, Gọi Món & Trà Nước',
+          description: 'Cơm, nước lọc, trà, táo và mẫu câu gọi món ở quán ăn bình dân.',
+          iconName: 'restaurant',
+          level: 'HSK 1',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '喝茶',
+              phonetic: 'hē chá',
+              hanViet: 'Hát trà',
+              meaningVi: 'Uống trà, thưởng trà',
+              wordType: 'phrase',
+              level: 'HSK 1',
+              notes: '喝 (uống) + 茶 (trà). Trà là nét văn hoá nổi tiếng của Trung Hoa.',
+              examples: [
+                ExampleSentence(
+                  text: '你想喝茶还是喝咖啡？',
+                  pinyin: 'Nǐ xiǎng hē chá háishì hē kāfēi?',
+                  vi: 'Bạn muốn uống trà hay là uống cà phê?',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '米饭',
+              phonetic: 'mǐfàn',
+              hanViet: 'Mễ phạn',
+              meaningVi: 'Cơm trắng',
+              wordType: 'noun',
+              level: 'HSK 1',
+              notes: '米 (gạo) + 饭 (cơm).',
+              examples: [
+                ExampleSentence(
+                  text: '服务员，请给我们两碗米饭。',
+                  pinyin: 'Fúwùyuán, qǐng gěi wǒmen liǎng wǎn mǐfàn.',
+                  vi: 'Phục vụ ơi, vui lòng cho chúng tôi hai bát cơm.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '好吃',
+              phonetic: 'hǎochī',
+              hanViet: 'Hảo cật',
+              meaningVi: 'Ngon miệng, thơm ngon',
+              wordType: 'adj',
+              level: 'HSK 1',
+              notes: '好 (tốt, ngon) + 吃 (ăn).',
+              examples: [
+                ExampleSentence(
+                  text: '妈妈做的中国菜真好吃！',
+                  pinyin: 'Māma zuò de zhōngguócài zhēn hǎochī!',
+                  vi: 'Món ăn Trung Quốc mẹ nấu ngon thật đấy!',
+                ),
+              ],
+            ),
+          ],
+        ),
+        CurriculumUnit(
+          id: 'zh_u4',
+          stageId: 'zh_stage_2',
+          stageTitle: 'Chặng 2: HSK 1 - Cốt Lõi Đời Thường',
+          languageCode: 'ZH',
+          title: 'Thời Gian, Ngày Tháng & Lịch Trình',
+          description: 'Hôm nay, ngày mai, mấy giờ, thứ mấy và hẹn lịch gặp gỡ.',
+          iconName: 'calendar_today',
+          level: 'HSK 1',
+          orderIndex: 2,
+          words: [
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '今天',
+              phonetic: 'jīntiān',
+              hanViet: 'Kim thiên',
+              meaningVi: 'Hôm nay',
+              wordType: 'noun',
+              level: 'HSK 1',
+              notes: '今 (hiện tại) + 天 (ngày).',
+              examples: [
+                ExampleSentence(
+                  text: '今天星期几？今天星期五。',
+                  pinyin: 'Jīntiān xīngqī jǐ? Jīntiān xīngqīwǔ.',
+                  vi: 'Hôm nay là thứ mấy? Hôm nay là thứ sáu.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '几点',
+              phonetic: 'jǐ diǎn',
+              hanViet: 'Kỷ điểm',
+              meaningVi: 'Mấy giờ',
+              wordType: 'phrase',
+              level: 'HSK 1',
+              notes: '几 (mấy, bao nhiêu) + 点 (giờ).',
+              examples: [
+                ExampleSentence(
+                  text: '现在几点？现在是下午三点半。',
+                  pinyin: 'Xiànzài jǐ diǎn? Xiànzài shì xiàwǔ sān diǎn bàn.',
+                  vi: 'Bây giờ là mấy giờ? Bây giờ là 3 giờ rưỡi chiều.',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+    LearningStage(
+      id: 'zh_stage_3',
+      languageCode: 'ZH',
+      title: 'Chặng 3: HSK 2 - Giao Tiếp Thành Thạo',
+      subtitle: 'Mua sắm, hỏi giá, đi tàu bay, xe bus và giao thiệp công sở',
+      level: 'HSK 2',
+      badgeColor: 0xFF3B82F6, // Blue
+      iconName: 'directions_bus',
+      orderIndex: 3,
+      units: [
+        CurriculumUnit(
+          id: 'zh_u5',
+          stageId: 'zh_stage_3',
+          stageTitle: 'Chặng 3: HSK 2 - Giao Tiếp Thành Thạo',
+          languageCode: 'ZH',
+          title: 'Mua Sắm, Giá Cả & Trả Giá',
+          description: 'Hỏi bao nhiêu tiền, mặc cả đắt rẻ và cách thanh toán bằng Wechat/Alipay.',
+          iconName: 'payments',
+          level: 'HSK 2',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '多少钱',
+              phonetic: 'duōshao qián',
+              hanViet: 'Đa thiếu tiền',
+              meaningVi: 'Bao nhiêu tiền',
+              wordType: 'phrase',
+              level: 'HSK 2',
+              notes: '多少 (bao nhiêu) + 钱 (tiền). Câu thần chú khi đi chợ Trung Quốc.',
+              examples: [
+                ExampleSentence(
+                  text: '老板，这件衣服多少钱？',
+                  pinyin: 'Lǎobǎn, zhè jiàn yīfu duōshao qián?',
+                  vi: 'Ông chủ ơi, chiếc áo này giá bao nhiêu tiền?',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '便宜',
+              phonetic: 'piányi',
+              hanViet: 'Tiện nghi',
+              meaningVi: 'Rẻ, giá rẻ; món hời',
+              wordType: 'adj',
+              level: 'HSK 2',
+              notes: 'Được dùng rất nhiều khi mặc cả: 便宜一点吧 (Rẻ hơn một chút nhé).',
+              examples: [
+                ExampleSentence(
+                  text: '太贵了，能不能便宜一点？',
+                  pinyin: 'Tài guì le, néng bù néng piányi yìdiǎn?',
+                  vi: 'Đắt quá, có thể bớt rẻ một chút được không?',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+    LearningStage(
+      id: 'zh_stage_4',
+      languageCode: 'ZH',
+      title: 'Chặng 4: HSK 3 & Đời Sống Thực Tế',
+      subtitle: 'Tự tin du lịch Trung Quốc, thuê nhà, bàn chuyện công việc và kết bạn',
+      level: 'HSK 3 - Thực Chiến',
+      badgeColor: 0xFFF59E0B, // Amber
+      iconName: 'explore',
+      orderIndex: 4,
+      units: [
+        CurriculumUnit(
+          id: 'zh_u6',
+          stageId: 'zh_stage_4',
+          stageTitle: 'Chặng 4: HSK 3 & Đời Sống Thực Tế',
+          languageCode: 'ZH',
+          title: 'Động Lực, Kiên Trì & Thành Công',
+          description: 'Các từ vựng triết lý, ý chí vươn lên và xây dựng thói quen tốt.',
+          iconName: 'emoji_events',
+          level: 'HSK 3',
+          orderIndex: 1,
+          words: [
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '坚持',
+              phonetic: 'jiānchí',
+              hanViet: 'Kiên trì',
+              meaningVi: 'Kiên trì, bền bỉ đến cùng',
+              wordType: 'verb',
+              level: 'HSK 3',
+              notes: '坚 (Kiên: cứng rắn, vững vàng) + 持 (Trì: duy trì, nắm giữ).',
+              examples: [
+                ExampleSentence(
+                  text: '只要坚持努力，梦想就一定会实现。',
+                  pinyin: 'Zhǐyào jiānchí nǔlì, mèngxiǎng jiù yídìng huì shíxiàn.',
+                  vi: 'Chỉ cần kiên trì nỗ lực, ước mơ nhất định sẽ thành hiện thực.',
+                ),
+              ],
+            ),
+            VocabularyItem(
+              languageCode: 'ZH',
+              word: '成功',
+              phonetic: 'chénggōng',
+              hanViet: 'Thành công',
+              meaningVi: 'Thành công, đạt được thắng lợi',
+              wordType: 'verb / noun',
+              level: 'HSK 3',
+              notes: '成 (thành) + 功 (công). Thành công là kết tinh của mồ hôi và nghị lực.',
+              examples: [
+                ExampleSentence(
+                  text: '祝你这次考试取得圆满成功！',
+                  pinyin: 'Zhù nǐ zhè cì kǎoshì qǔdé yuánmǎn chénggōng!',
+                  vi: 'Chúc bạn kỳ thi này gặt hái thành công trọn vẹn!',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+  ];
+}

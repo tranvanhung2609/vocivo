@@ -27,7 +27,10 @@ import '../widgets/hanzi_canvas_dialog.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SrsReviewScreen extends ConsumerStatefulWidget {
-  const SrsReviewScreen({super.key});
+  final List<VocabularyItem>? customItems;
+  final String? title;
+
+  const SrsReviewScreen({super.key, this.customItems, this.title});
 
   @override
   ConsumerState<SrsReviewScreen> createState() => _SrsReviewScreenState();
@@ -65,6 +68,12 @@ class _SrsReviewScreenState extends ConsumerState<SrsReviewScreen>
   @override
   void initState() {
     super.initState();
+
+    if (widget.customItems != null && widget.customItems!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(srsProvider.notifier).startCustomSession(widget.customItems!);
+      });
+    }
 
     // Flip (3D card rotation on Y axis)
     _flipController = AnimationController(

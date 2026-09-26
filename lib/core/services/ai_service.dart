@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/vocabulary_item.dart';
+import '../../models/curriculum_model.dart';
 import 'secure_storage_service.dart';
 
 /// Thời gian timeout mặc định cho mọi API call
@@ -174,6 +175,123 @@ Bạn là chuyên gia từ điển và ngôn ngữ học Anh - Việt. Hãy phâ
       inputDescription: 'Danh sách các từ sau cần phân tích chi tiết:\n$wordListFormatted',
     );
     return _extractList(prompt: prompt, languageCode: languageCode);
+  }
+
+  /// Tạo bộ thẻ / bài học hoàn chỉnh theo chủ đề bất kỳ bằng AI
+  Future<CurriculumUnit> generateTopicDeck({
+    required String topic,
+    required String languageCode,
+    String? level,
+    int wordCount = 8,
+  }) async {
+    final isChinese = languageCode.toUpperCase() == 'ZH';
+    final provider = await SecureStorageService.instance.getActiveProvider();
+
+    final systemInstruction = isChinese
+        ? '''Bạn là chuyên gia ngôn ngữ học và biên soạn giáo trình tiếng Trung thực chiến hàng đầu.
+Hãy tạo một bộ bài học từ vựng hoàn chỉnh về chủ đề: "$topic" với cấp độ: "${level ?? 'HSK 1 - HSK 3'}", gồm đúng $wordCount từ/cụm từ quan trọng nhất.
+
+Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ văn bản nào khác ngoài JSON):
+{
+  "unit_title": "Tên bài học tiếng Việt (ví dụ: Gọi món & Ẩm thực Tứ Xuyên)",
+  "unit_description": "Mô tả 1 câu về mục tiêu bài học",
+  "icon_name": "restaurant",
+  "level": "${level ?? 'HSK 2'}",
+  "items": [
+    {
+      "word": "麻婆豆腐",
+      "pinyin": "mápó dòufu",
+      "han_viet": "Ma bà đậu phụ",
+      "meaning_vi": "Đậu phụ Tứ Xuyên (cay tê)",
+      "word_type": "noun",
+      "hsk_level": "HSK 2",
+      "notes": "Món ăn đặc sản kinh điển của tỉnh Tứ Xuyên",
+      "examples": [
+        {
+          "zh": "老板，请给我来一份麻婆豆腐。",
+          "pinyin": "Lǎobǎn, qǐng gěi wǒ lái yí fèn mápó dòufu.",
+          "vi": "Ông chủ ơi, cho tôi một phần đậu phụ Tứ Xuyên."
+        }
+      ]
+    }
+  ]
+}'''
+        : '''Bạn là chuyên gia ngôn ngữ học và biên soạn giáo trình tiếng Anh thực chiến hàng đầu.
+Hãy tạo một bộ bài học từ vựng hoàn chỉnh về chủ đề: "$topic" với cấp độ: "${level ?? 'A2 - B1'}", gồm đúng $wordCount từ/cụm từ thiết thực nhất.
+
+Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ văn bản nào khác ngoài JSON):
+{
+  "unit_title": "Tên bài học tiếng Việt (ví dụ: Phỏng vấn xin việc IT)",
+  "unit_description": "Mô tả 1 câu về mục tiêu bài học",
+  "icon_name": "work",
+  "level": "${level ?? 'B1'}",
+  "items": [
+    {
+      "word": "architecture",
+      "ipa": "/ˈɑː.kɪ.tek.tʃər/",
+      "word_type": "noun",
+      "meaning_vi": "Kiến trúc hệ thống phần mềm",
+      "level": "B1",
+      "notes": "Dùng rất nhiều trong phỏng vấn kỹ thuật",
+      "collocations": ["microservices architecture", "clean architecture"],
+      "examples": [
+        {
+          "en": "I have experience designing scalable software architecture.",
+          "vi": "Tôi có kinh nghiệm thiết kế kiến trúc phần mềm có khả năng mở rộng."
+        }
+      ]
+    }
+  ]
+}''';
+
+    final String rawText;
+    if (provider == 'openai') {
+      rawText = await _callOpenAi(
+        messages: [
+          {'role': 'system', 'content': systemInstruction},
+          {'role': 'user', 'content': 'Tạo bộ thẻ bài học chủ đề: "$topic"'},
+        ],
+        responseFormat: {'type': 'json_object'},
+      );
+    } else {
+      rawText = await _callGemini(
+        contents: [
+          {
+            'parts': [
+              {'text': systemInstruction}
+            ]
+          }
+        ],
+      );
+    }
+
+    final cleanJson = _cleanJsonString(rawText);
+    final decoded = jsonDecode(cleanJson) as Map<String, dynamic>;
+
+    final unitTitle = decoded['unit_title']?.toString().trim() ?? topic;
+    final unitDesc = decoded['unit_description']?.toString().trim() ?? 'Bộ từ vựng chủ đề $topic';
+    final iconName = decoded['icon_name']?.toString().trim() ?? (isChinese ? 'translate' : 'school');
+    final actualLevel = decoded['level']?.toString().trim() ?? (level ?? (isChinese ? 'HSK 2' : 'A2'));
+
+    final rawItems = decoded['items'] as List? ?? [];
+    final items = rawItems
+        .whereType<Map<String, dynamic>>()
+        .map((e) => _parseItemMap(e, languageCode))
+        .toList();
+
+    return CurriculumUnit(
+      id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
+      stageId: 'custom_ai',
+      stageTitle: '✨ Chủ Đề AI Tự Tạo',
+      languageCode: languageCode.toUpperCase(),
+      title: unitTitle,
+      description: unitDesc,
+      iconName: iconName,
+      level: actualLevel,
+      isAiGenerated: true,
+      words: items,
+      orderIndex: 999,
+    );
   }
 
   // ==========================================================================

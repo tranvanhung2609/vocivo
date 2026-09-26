@@ -74,6 +74,16 @@ class SrsNotifier extends Notifier<SrsState> {
     );
   }
 
+  /// Bắt đầu phiên ôn tập với danh sách thẻ cụ thể (ví dụ: theo bài học trong lộ trình)
+  void startCustomSession(List<VocabularyItem> items) {
+    state = state.copyWith(
+      dueItems: items,
+      currentIndex: 0,
+      isCardFlipped: false,
+      isSessionCompleted: items.isEmpty,
+    );
+  }
+
   void flipCard() {
     state = state.copyWith(isCardFlipped: !state.isCardFlipped);
   }
