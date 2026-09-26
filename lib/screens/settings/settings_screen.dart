@@ -393,17 +393,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             // Gemini Model dropdown
             DropdownButtonFormField<String>(
-              initialValue: ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'].contains(settings.geminiModel)
+              initialValue: ['gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-3.8-flash'].contains(settings.geminiModel)
                   ? settings.geminiModel
-                  : 'gemini-1.5-flash',
+                  : 'gemini-flash-latest',
               decoration: const InputDecoration(
                 labelText: 'Mô hình Gemini',
                 prefixIcon: Icon(Icons.tune_rounded),
               ),
               items: const [
-                DropdownMenuItem(value: 'gemini-1.5-flash', child: Text('Gemini 1.5 Flash (Mặc định - Nhanh & Miễn phí)')),
-                DropdownMenuItem(value: 'gemini-2.0-flash', child: Text('Gemini 2.0 Flash (Thế hệ mới nhất)')),
-                DropdownMenuItem(value: 'gemini-1.5-pro', child: Text('Gemini 1.5 Pro (Chuyên sâu & suy luận)')),
+                DropdownMenuItem(value: 'gemini-flash-latest', child: Text('Gemini Flash (Mặc định - Khuyên dùng)')),
+                DropdownMenuItem(value: 'gemini-2.5-flash-lite', child: Text('Gemini 2.5 Flash Lite (Tiết kiệm)')),
+                DropdownMenuItem(value: 'gemini-3.8-flash', child: Text('Gemini 3.8 Flash (Thế hệ mới)')),
               ],
               onChanged: (val) {
                 if (val != null) {

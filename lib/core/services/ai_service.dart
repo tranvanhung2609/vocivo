@@ -353,10 +353,8 @@ Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ v�
     }
 
     var model = modelOverride ?? await SecureStorageService.instance.getGeminiModel();
-    if (model == 'gemini-flash-latest' ||
-        model.contains('3.8') ||
-        model.contains('2.5-flash-lite')) {
-      model = 'gemini-1.5-flash';
+    if (model.contains('1.5') || model.isEmpty) {
+      model = 'gemini-flash-latest';
     }
 
     var url = Uri.parse(
@@ -378,10 +376,10 @@ Trả về kết quả ĐÚNG ĐỊNH DẠNG JSON sau (không kèm bất kỳ v�
           onTimeout: () => throw Exception('Kết nối Gemini bị timeout sau 30 giây. Hãy thử lại.'),
         );
 
-    // Fallback nếu model cũ bị 404
-    if (response.statusCode == 404 && model != 'gemini-1.5-flash') {
+    // Fallback nếu model bị 404 (chưa hỗ trợ hoặc đổi tên)
+    if (response.statusCode == 404 && model != 'gemini-flash-latest') {
       url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$apiKey',
       );
       response = await http
           .post(url, headers: {'Content-Type': 'application/json'}, body: body)
