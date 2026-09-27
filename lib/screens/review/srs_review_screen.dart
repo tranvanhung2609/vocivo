@@ -9,6 +9,7 @@ import '../../core/services/tts_service.dart';
 import '../../models/srs_progress.dart';
 import '../../models/vocabulary_item.dart';
 import '../../providers/srs_provider.dart';
+import '../../providers/progress_provider.dart';
 import '../widgets/pinyin_text.dart';
 import '../widgets/hanzi_canvas_dialog.dart';
 
@@ -62,6 +63,9 @@ class _SrsReviewScreenState extends ConsumerState<SrsReviewScreen>
 
   // ── Session stats ─────────────────────────────────────────────────────────
   int _goodCount = 0;  // again=0, hard=1, good=2, easy=2
+  int _reviewedCount = 0;
+  bool _progressRecorded = false;
+  bool _isSubmittingRating = false;
 
   final FocusNode _keyboardFocusNode = FocusNode();
 
@@ -150,27 +154,36 @@ class _SrsReviewScreenState extends ConsumerState<SrsReviewScreen>
 
   // ── Rating submit with slide-out animation ────────────────────────────────
   void _submitRating(SrsRating rating) async {
-    if (_slideController.isAnimating) return;
+    if (_isSubmittingRating || _slideController.isAnimating) return;
+    _isSubmittingRating = true;
     HapticFeedback.mediumImpact();
+    try {
+      // Tactile press feedback
+      setState(() => _buttonPressed[rating] = true);
+      await Future.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return;
+      setState(() => _buttonPressed[rating] = false);
 
-    // Tactile press feedback
-    setState(() => _buttonPressed[rating] = true);
-    await Future.delayed(const Duration(milliseconds: 80));
-    if (!mounted) return;
-    setState(() => _buttonPressed[rating] = false);
+      // Track accuracy
+      if (rating == SrsRating.good || rating == SrsRating.easy) _goodCount++;
 
-    // Track accuracy
-    if (rating == SrsRating.good || rating == SrsRating.easy) _goodCount++;
+      // Slide out current card
+      _slideController.reset();
+      await _slideController.forward();
+      if (!mounted) return;
 
-    // Slide out current card
-    _slideController.reset();
-    await _slideController.forward();
-    if (!mounted) return;
-
-    // Commit to provider and reset animations
-    _flipController.reset();
-    _slideController.reset();
-    ref.read(srsProvider.notifier).submitReview(rating);
+      // Commit to provider and reset animations
+      _flipController.reset();
+      _slideController.reset();
+      await ref.read(srsProvider.notifier).submitReview(rating);
+      _reviewedCount++;
+      if (!_progressRecorded && ref.read(srsProvider).isSessionCompleted) {
+        await ref.read(progressProvider.notifier).recordReview(_reviewedCount);
+        _progressRecorded = true;
+      }
+    } finally {
+      _isSubmittingRating = false;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -997,6 +1010,8 @@ class _SrsReviewScreenState extends ConsumerState<SrsReviewScreen>
                           onPressed: () {
                             setState(() {
                               _goodCount = 0;
+                              _reviewedCount = 0;
+                              _progressRecorded = false;
                               _particles = _generateParticles();
                             });
                             ref.read(srsProvider.notifier).initSrs();

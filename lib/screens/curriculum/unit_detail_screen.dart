@@ -102,10 +102,10 @@ class _UnitDetailScreenState extends ConsumerState<UnitDetailScreen> {
                     ],
                   ),
                 );
-                if (confirm == true && mounted) {
+                if (confirm == true && context.mounted) {
                   final navigator = Navigator.of(context);
                   await ref.read(curriculumProvider.notifier).deleteAiUnit(unit.id);
-                  if (mounted) navigator.pop();
+                  if (context.mounted) navigator.pop();
                 }
               },
             ),
@@ -123,11 +123,11 @@ class _UnitDetailScreenState extends ConsumerState<UnitDetailScreen> {
                 gradient: LinearGradient(
                   colors: isDark
                       ? [
-                          accentColor.withOpacity(0.2),
+                          accentColor.withValues(alpha: 0.2),
                           const Color(0xFF1E293B),
                         ]
                       : [
-                          accentColor.withOpacity(0.12),
+                          accentColor.withValues(alpha: 0.12),
                           Colors.white,
                         ],
                   begin: Alignment.topLeft,
@@ -163,7 +163,7 @@ class _UnitDetailScreenState extends ConsumerState<UnitDetailScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.2),
+                            color: Colors.amber.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -186,7 +186,7 @@ class _UnitDetailScreenState extends ConsumerState<UnitDetailScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withOpacity(0.15),
+                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFF10B981)),
                           ),
@@ -285,7 +285,7 @@ class _UnitDetailScreenState extends ConsumerState<UnitDetailScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: accentColor.withOpacity(0.3),
+                            color: accentColor.withValues(alpha: 0.3),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -449,7 +449,7 @@ class _UnitDetailScreenState extends ConsumerState<UnitDetailScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: accentColor.withOpacity(0.12),
+                                        color: accentColor.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(

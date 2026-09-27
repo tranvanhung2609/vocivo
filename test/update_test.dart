@@ -80,5 +80,29 @@ void main() {
       expect(windowsInfo.fileSizeBytes, equals(14000000));
       expect(windowsInfo.isForceUpdate, isFalse);
     });
+
+    test('Only accepts APK assets for Android updates', () {
+      final info = AppUpdateInfo.fromGitHubRelease(
+        json: {
+          'tag_name': 'v2.0.0',
+          'assets': [
+            {
+              'name': 'vocivo-android-notes.txt',
+              'browser_download_url': 'https://github.com/notes.txt',
+              'size': 10,
+            },
+            {
+              'name': 'vocivo-android-release.apk',
+              'browser_download_url': 'https://github.com/vocivo.apk',
+              'size': 20,
+            },
+          ],
+        },
+        currentVersion: '1.0.0',
+        platformAssetKeyword: 'android',
+      );
+
+      expect(info.fileName, 'vocivo-android-release.apk');
+    });
   });
 }

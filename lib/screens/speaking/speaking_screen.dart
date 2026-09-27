@@ -12,6 +12,7 @@ import '../../core/services/tts_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/vocabulary_item.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../providers/progress_provider.dart';
 import '../widgets/pinyin_text.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
   int _totalScoreSum = 0;
   int _completedCount = 0;
   int _earnedXp = 0;
+  bool _completionRecorded = false;
 
   // Animations
   late AnimationController _waveController;
@@ -265,7 +267,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
     });
   }
 
-  void _nextItem() {
+  Future<void> _nextItem() async {
     HapticFeedback.selectionClick();
     if (_currentIndex < _items.length - 1) {
       setState(() {
@@ -275,7 +277,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
         _latestResult = null;
       });
     } else {
-      _showSessionCompletion();
+      await _showSessionCompletion();
     }
   }
 
@@ -292,11 +294,22 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
   // COMPLETION & CELEBRATION
   // ───────────────────────────────────────────────────────────────────────────
 
-  void _showSessionCompletion() {
+  Future<void> _showSessionCompletion() async {
+    if (_completionRecorded) return;
+    _completionRecorded = true;
     _initConfetti();
     _confettiController.forward(from: 0.0);
 
     final avgScore = _completedCount > 0 ? (_totalScoreSum / _completedCount).round() : 0;
+
+    try {
+      await ref
+          .read(progressProvider.notifier)
+          .recordSpeakingSession(score: avgScore);
+    } catch (error, stack) {
+      debugPrint('Speaking progress save failed: $error\n$stack');
+    }
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -402,6 +415,7 @@ class _SpeakingScreenState extends ConsumerState<SpeakingScreen>
                     _totalScoreSum = 0;
                     _completedCount = 0;
                     _earnedXp = 0;
+                    _completionRecorded = false;
                   });
                 },
                 icon: const Icon(Icons.replay_rounded),

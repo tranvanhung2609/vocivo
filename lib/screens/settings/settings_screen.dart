@@ -508,6 +508,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.cardDark : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              ),
+            ),
+            child: SwitchListTile.adaptive(
+              value: settings.useV2Experience,
+              onChanged: (enabled) => ref
+                  .read(settingsProvider.notifier)
+                  .setUseV2Experience(enabled),
+              secondary: const Icon(Icons.dashboard_customize_outlined),
+              title: const Text('Trải nghiệm Vocivo V2'),
+              subtitle: const Text(
+                'Tắt để quay lại giao diện 1.x trong giai đoạn chuyển đổi.',
+              ),
+            ),
+          ),
 
           const SizedBox(height: 28),
           const Divider(),

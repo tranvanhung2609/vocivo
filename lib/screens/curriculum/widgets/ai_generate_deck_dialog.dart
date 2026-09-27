@@ -142,7 +142,7 @@ class _AiGenerateDeckDialogState extends ConsumerState<AiGenerateDeckDialog> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.12),
+                        color: accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
@@ -189,9 +189,9 @@ class _AiGenerateDeckDialogState extends ConsumerState<AiGenerateDeckDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,9 +411,9 @@ class _AiGenerateDeckDialogState extends ConsumerState<AiGenerateDeckDialog> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.08),
+                      color: accentColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: accentColor.withOpacity(0.2)),
+                      border: Border.all(color: accentColor.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       children: [

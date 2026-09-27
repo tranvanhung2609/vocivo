@@ -103,7 +103,7 @@ class AppUpdateInfo {
     } else {
       for (final asset in assets) {
         final name = (asset['name'] as String? ?? '').toLowerCase();
-        if (name.contains(platformAssetKeyword)) {
+        if (name.contains(platformAssetKeyword) && name.endsWith('.apk')) {
           targetAsset = asset as Map<String, dynamic>;
           break;
         }

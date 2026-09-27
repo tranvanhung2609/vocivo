@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/app_update_info.dart';
 
@@ -118,6 +119,7 @@ class UpdateService {
     required void Function(double progress) onProgress,
     void Function(double bytesPerSec)? onSpeed,
   }) async {
+    _validateUpdateSource(updateInfo);
     _cancelToken = CancelToken();
     final savePath = await _getDownloadPath(updateInfo.fileName);
 
@@ -154,6 +156,15 @@ class UpdateService {
         }
       },
     );
+
+    final downloadedSize = await file.length();
+    if (downloadedSize == 0 ||
+        (updateInfo.fileSizeBytes > 0 && downloadedSize != updateInfo.fileSizeBytes)) {
+      await file.delete();
+      throw const FormatException(
+        'File cập nhật tải về không đúng kích thước công bố.',
+      );
+    }
 
     return savePath;
   }
@@ -295,7 +306,31 @@ del /f /q "%~f0"
     } else {
       dir = await getTemporaryDirectory();
     }
-    return '${dir.path}${Platform.pathSeparator}$fileName';
+    return p.join(dir.path, p.basename(fileName));
+  }
+
+  void _validateUpdateSource(AppUpdateInfo updateInfo) {
+    final uri = Uri.tryParse(updateInfo.downloadUrl);
+    if (uri == null || uri.scheme != 'https' || uri.host != 'github.com') {
+      throw const FormatException(
+        'Nguồn cập nhật không hợp lệ; chỉ chấp nhận GitHub Releases qua HTTPS.',
+      );
+    }
+
+    final safeName = p.basename(updateInfo.fileName);
+    if (safeName.isEmpty || safeName != updateInfo.fileName) {
+      throw const FormatException('Tên file cập nhật không hợp lệ.');
+    }
+    final lower = safeName.toLowerCase();
+    final validExtension = Platform.isAndroid
+        ? lower.endsWith('.apk')
+        : Platform.isWindows &&
+            (lower.endsWith('.exe') || lower.endsWith('.zip'));
+    if (!validExtension) {
+      throw const FormatException(
+        'Định dạng file cập nhật không phù hợp với hệ điều hành.',
+      );
+    }
   }
 
   /// Kiểm tra xem có nên check update không (based on 24h cooldown).

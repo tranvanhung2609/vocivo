@@ -1,13 +1,16 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+
 import '../../models/vocabulary_item.dart';
 import '../../models/srs_progress.dart';
 import '../../models/tag_model.dart';
 import '../../models/curriculum_model.dart';
+import '../../models/learning_v2.dart';
 import '../constants/seed_data.dart';
 import '../constants/curriculum_seed_data.dart';
 
@@ -33,6 +36,11 @@ class AppDatabase {
   final List<CurriculumUnit> _inMemoryUnits = [];
   final Map<String, bool> _inMemoryUnitProgress = {};
   final Map<String, int> _inMemoryUnitScores = {};
+  final Map<String, LearningProfile> _inMemoryProfiles = {};
+  final Map<String, LearningSession> _inMemorySessions = {};
+  final Map<String, LessonDefinition> _inMemoryLessons = {};
+  final List<ExerciseAttempt> _inMemoryAttempts = [];
+  final Map<String, SkillMastery> _inMemoryMastery = {};
 
   void _initInMemoryFallback() {
     if (_inMemoryVocab.isNotEmpty) return;
@@ -99,7 +107,8 @@ class AppDatabase {
       databaseFactory = databaseFactoryFfiWeb;
       return await openDatabase(
         'vocivo_web.db',
-        version: 3,
+        version: 4,
+        onConfigure: _onConfigure,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -123,7 +132,9 @@ class AppDatabase {
     if (!await dbFile.exists() && await legacyFile.exists()) {
       try {
         await legacyFile.copy(dbPath);
-        debugPrint('Vocivo: Successfully migrated database from $legacyPath to $dbPath');
+        debugPrint(
+          'Vocivo: Successfully migrated database from $legacyPath to $dbPath',
+        );
       } catch (e) {
         debugPrint('Vocivo: Legacy db copy note: $e');
       }
@@ -131,11 +142,15 @@ class AppDatabase {
 
     return await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
+      onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
+
+  Future<void> _onConfigure(Database db) =>
+      db.execute('PRAGMA foreign_keys = ON');
 
   /// Migration handler — chạy khi user upgrade từ version cũ
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -159,7 +174,29 @@ class AppDatabase {
       await _createCurriculumTables(db);
       await _seedDefaultCurriculum(db);
     }
+    // v3 → v4: hồ sơ học, phiên học, kết quả từng bài và mastery theo kỹ năng.
+    // onUpgrade của sqflite chạy trong transaction; các CREATE/ALTER dưới đây
+    // được viết idempotent để có thể phục hồi an toàn sau một migration dở dang.
+    if (oldVersion < 4) {
+      await _createLearningV2Tables(db);
+      await _ensureColumn(
+        db,
+        'unit_progress',
+        'current_lesson',
+        'INTEGER DEFAULT 0',
+      );
+      await _ensureColumn(
+        db,
+        'unit_progress',
+        'checkpoint_score',
+        'INTEGER DEFAULT 0',
+      );
+    }
   }
+
+  @visibleForTesting
+  Future<void> migrateForTest(Database db, int oldVersion, int newVersion) =>
+      _onUpgrade(db, oldVersion, newVersion);
 
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
@@ -241,17 +278,109 @@ class AppDatabase {
         'next_review_date': DateTime.now().toIso8601String(),
         'last_reviewed_at': null,
       });
-      await db.insert('vocab_tags', {
-        'vocab_id': vocabId,
-        'tag_id': 1,
-      });
+      await db.insert('vocab_tags', {'vocab_id': vocabId, 'tag_id': 1});
     }
 
     await db.insert('settings', {'key': 'streak_count', 'value': '1'});
-    await db.insert('settings', {'key': 'last_active_date', 'value': DateTime.now().toIso8601String()});
+    await db.insert('settings', {
+      'key': 'last_active_date',
+      'value': DateTime.now().toIso8601String(),
+    });
 
     await _createCurriculumTables(db);
     await _seedDefaultCurriculum(db);
+    await _createLearningV2Tables(db);
+  }
+
+  Future<void> _ensureColumn(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    if (columns.any((row) => row['name'] == column)) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+  }
+
+  Future<void> _createLearningV2Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS learning_profiles (
+        course_code TEXT PRIMARY KEY,
+        goal TEXT NOT NULL,
+        level TEXT NOT NULL,
+        daily_minutes INTEGER NOT NULL DEFAULT 15,
+        study_days TEXT NOT NULL,
+        reminder_time TEXT,
+        updated_at DATETIME NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS lesson_definitions (
+        id TEXT PRIMARY KEY,
+        unit_id TEXT NOT NULL,
+        course_code TEXT NOT NULL,
+        title TEXT NOT NULL,
+        subtitle TEXT NOT NULL,
+        estimated_minutes INTEGER NOT NULL DEFAULT 5,
+        exercises_json TEXT NOT NULL,
+        updated_at DATETIME NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS learning_sessions (
+        id TEXT PRIMARY KEY,
+        course_code TEXT NOT NULL,
+        session_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        unit_id TEXT,
+        lesson_id TEXT,
+        current_step INTEGER NOT NULL DEFAULT 0,
+        total_steps INTEGER NOT NULL DEFAULT 0,
+        score INTEGER NOT NULL DEFAULT 0,
+        xp_earned INTEGER NOT NULL DEFAULT 0,
+        started_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        completed_at DATETIME
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_learning_sessions_resume
+      ON learning_sessions(course_code, status, updated_at)
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS exercise_attempts (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        exercise_id TEXT NOT NULL,
+        vocab_id INTEGER,
+        skill TEXT NOT NULL,
+        response TEXT NOT NULL,
+        is_correct INTEGER NOT NULL DEFAULT 0,
+        score INTEGER NOT NULL DEFAULT 0,
+        feedback TEXT,
+        created_at DATETIME NOT NULL,
+        UNIQUE(session_id, exercise_id),
+        FOREIGN KEY (session_id) REFERENCES learning_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (vocab_id) REFERENCES vocabulary(id) ON DELETE SET NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_exercise_attempts_mistakes
+      ON exercise_attempts(skill, is_correct, created_at)
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS skill_mastery (
+        id TEXT PRIMARY KEY,
+        course_code TEXT NOT NULL,
+        skill TEXT NOT NULL,
+        vocab_id INTEGER,
+        mastery REAL NOT NULL DEFAULT 0,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        updated_at DATETIME NOT NULL,
+        FOREIGN KEY (vocab_id) REFERENCES vocabulary(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _createCurriculumTables(Database db) async {
@@ -282,13 +411,17 @@ class AppDatabase {
         unit_id TEXT PRIMARY KEY,
         is_completed INTEGER DEFAULT 0,
         completed_at DATETIME,
-        last_score INTEGER DEFAULT 0
+        last_score INTEGER DEFAULT 0,
+        current_lesson INTEGER DEFAULT 0,
+        checkpoint_score INTEGER DEFAULT 0
       )
     ''');
   }
 
   Future<void> _seedDefaultCurriculum(Database db) async {
-    final countRes = await db.rawQuery('SELECT COUNT(*) as count FROM learning_units');
+    final countRes = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM learning_units',
+    );
     final count = (countRes.first['count'] as int?) ?? 0;
     if (count > 0) return;
 
@@ -299,9 +432,17 @@ class AppDatabase {
 
     for (final stage in allStages) {
       for (final unit in stage.units) {
-        await db.insert('learning_units', unit.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+        await db.insert(
+          'learning_units',
+          unit.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
         for (final word in unit.words) {
-          final vocabId = await db.insert('vocabulary', word.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+          final vocabId = await db.insert(
+            'vocabulary',
+            word.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
           if (vocabId > 0) {
             await db.insert('srs_progress', {
               'vocab_id': vocabId,
@@ -328,7 +469,12 @@ class AppDatabase {
   Future<int> insertVocabulary(VocabularyItem item, {List<int>? tagIds}) async {
     final db = await database;
     if (db == null) {
-      final nextId = _inMemoryVocab.isEmpty ? 1 : (_inMemoryVocab.map((e) => e.id ?? 0).reduce((a, b) => a > b ? a : b) + 1);
+      final nextId = _inMemoryVocab.isEmpty
+          ? 1
+          : (_inMemoryVocab
+                    .map((e) => e.id ?? 0)
+                    .reduce((a, b) => a > b ? a : b) +
+                1);
       final newItem = item.copyWith(id: nextId);
       _inMemoryVocab.insert(0, newItem);
       _inMemorySrs[nextId] = SrsProgress(
@@ -338,30 +484,34 @@ class AppDatabase {
       return nextId;
     }
 
-    final id = await db.insert('vocabulary', item.toMap());
-    await db.insert('srs_progress', {
-      'vocab_id': id,
-      'repetition_count': 0,
-      'interval_days': 1,
-      'ease_factor': 2.5,
-      'next_review_date': DateTime.now().toIso8601String(),
-      'last_reviewed_at': null,
-    });
+    return db.transaction((txn) async {
+      final id = await txn.insert('vocabulary', item.toMap());
+      await txn.insert('srs_progress', {
+        'vocab_id': id,
+        'repetition_count': 0,
+        'interval_days': 1,
+        'ease_factor': 2.5,
+        'next_review_date': DateTime.now().toIso8601String(),
+        'last_reviewed_at': null,
+      });
 
-    if (tagIds != null) {
-      for (final tagId in tagIds) {
-        await db.insert('vocab_tags', {'vocab_id': id, 'tag_id': tagId});
+      if (tagIds != null) {
+        for (final tagId in tagIds) {
+          await txn.insert('vocab_tags', {'vocab_id': id, 'tag_id': tagId});
+        }
       }
-    }
-    return id;
+      return id;
+    });
   }
 
   Future<bool> isWordSaved(String word, String languageCode) async {
     final db = await database;
     if (db == null) {
-      return _inMemoryVocab.any((e) =>
-          e.word.trim().toLowerCase() == word.trim().toLowerCase() &&
-          e.languageCode == languageCode.toUpperCase());
+      return _inMemoryVocab.any(
+        (e) =>
+            e.word.trim().toLowerCase() == word.trim().toLowerCase() &&
+            e.languageCode == languageCode.toUpperCase(),
+      );
     }
 
     final res = await db.query(
@@ -378,6 +528,7 @@ class AppDatabase {
     if (db == null) {
       _inMemoryVocab.removeWhere((e) => e.id == id);
       _inMemorySrs.remove(id);
+      _inMemoryMastery.removeWhere((_, value) => value.vocabularyId == id);
       return 1;
     }
 
@@ -388,6 +539,18 @@ class AppDatabase {
       // Xóa bảng liên kết trước (safe nếu CASCADE chưa được enable)
       await txn.delete('srs_progress', where: 'vocab_id = ?', whereArgs: [id]);
       await txn.delete('vocab_tags', where: 'vocab_id = ?', whereArgs: [id]);
+      await txn.delete(
+        'unit_vocabulary',
+        where: 'vocab_id = ?',
+        whereArgs: [id],
+      );
+      await txn.update(
+        'exercise_attempts',
+        {'vocab_id': null},
+        where: 'vocab_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete('skill_mastery', where: 'vocab_id = ?', whereArgs: [id]);
       return await txn.delete('vocabulary', where: 'id = ?', whereArgs: [id]);
     });
   }
@@ -401,7 +564,12 @@ class AppDatabase {
       }
       return;
     }
-    await db.update('vocabulary', {'notes': notes}, where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'vocabulary',
+      {'notes': notes},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<List<VocabularyItem>> searchVocabulary({
@@ -419,7 +587,8 @@ class AppDatabase {
         if (trimmed.isEmpty) return true;
         return v.word.toLowerCase().contains(trimmed) ||
             v.meaningVi.toLowerCase().contains(trimmed) ||
-            (v.phonetic != null && v.phonetic!.toLowerCase().contains(trimmed)) ||
+            (v.phonetic != null &&
+                v.phonetic!.toLowerCase().contains(trimmed)) ||
             (v.hanViet != null && v.hanViet!.toLowerCase().contains(trimmed));
       }).toList();
     }
@@ -469,8 +638,8 @@ class AppDatabase {
       var result = languageCode == null
           ? List<VocabularyItem>.from(_inMemoryVocab)
           : _inMemoryVocab
-              .where((e) => e.languageCode == languageCode.toUpperCase())
-              .toList();
+                .where((e) => e.languageCode == languageCode.toUpperCase())
+                .toList();
       if (limit != null) {
         result = result.skip(offset).take(limit).toList();
       }
@@ -522,14 +691,19 @@ class AppDatabase {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getDueReviews({String? languageCode}) async {
+  Future<List<Map<String, dynamic>>> getDueReviews({
+    String? languageCode,
+  }) async {
     final db = await database;
     if (db == null) {
       final now = DateTime.now();
       final dueVocabs = _inMemoryVocab.where((v) {
-        if (languageCode != null && v.languageCode != languageCode.toUpperCase()) return false;
+        if (languageCode != null &&
+            v.languageCode != languageCode.toUpperCase()) {
+          return false;
+        }
         final srs = _inMemorySrs[v.id];
-        return srs == null || srs.nextReviewDate.isBefore(now);
+        return srs == null || !srs.nextReviewDate.isAfter(now);
       }).toList();
 
       return dueVocabs.map((v) {
@@ -538,7 +712,8 @@ class AppDatabase {
         map['repetition_count'] = srs?.repetitionCount ?? 0;
         map['interval_days'] = srs?.intervalDays ?? 1;
         map['ease_factor'] = srs?.easeFactor ?? 2.5;
-        map['next_review_date'] = srs?.nextReviewDate.toIso8601String() ?? now.toIso8601String();
+        map['next_review_date'] =
+            srs?.nextReviewDate.toIso8601String() ?? now.toIso8601String();
         return map;
       }).toList();
     }
@@ -604,7 +779,9 @@ class AppDatabase {
       _inMemoryTags.add(TagModel(id: nextId, name: name.trim()));
       return nextId;
     }
-    return await db.insert('tags', {'name': name.trim()}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    return await db.insert('tags', {
+      'name': name.trim(),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   // -------------------------------------------------------------
@@ -614,7 +791,12 @@ class AppDatabase {
   Future<String?> getSetting(String key) async {
     final db = await database;
     if (db == null) return _inMemorySettings[key];
-    final res = await db.query('settings', where: 'key = ?', whereArgs: [key], limit: 1);
+    final res = await db.query(
+      'settings',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
     if (res.isEmpty) return null;
     return res.first['value']?.toString();
   }
@@ -625,7 +807,10 @@ class AppDatabase {
       _inMemorySettings[key] = value;
       return;
     }
-    await db.insert('settings', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('settings', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<int> checkAndUpdateStreak() async {
@@ -638,7 +823,9 @@ class AppDatabase {
       final lastActive = DateTime.tryParse(lastActiveStr);
       if (lastActive != null) {
         final daysDiff = DateTime(now.year, now.month, now.day)
-            .difference(DateTime(lastActive.year, lastActive.month, lastActive.day))
+            .difference(
+              DateTime(lastActive.year, lastActive.month, lastActive.day),
+            )
             .inDays;
         if (daysDiff == 1) {
           currentStreak += 1;
@@ -660,9 +847,15 @@ class AppDatabase {
   Future<int> getMasteredWordsCount({String? languageCode}) async {
     final db = await database;
     if (db == null) {
-      return _inMemorySrs.values
-          .where((s) => s.repetitionCount >= 5)
-          .length;
+      return _inMemorySrs.values.where((s) {
+        if (s.repetitionCount < 5) return false;
+        if (languageCode == null) return true;
+        return _inMemoryVocab.any(
+          (word) =>
+              word.id == s.vocabId &&
+              word.languageCode == languageCode.toUpperCase(),
+        );
+      }).length;
     }
     String sql = '''
       SELECT COUNT(*) as count
@@ -684,7 +877,9 @@ class AppDatabase {
     final db = await database;
     if (db == null) {
       if (languageCode == null) return _inMemoryVocab.length;
-      return _inMemoryVocab.where((e) => e.languageCode == languageCode.toUpperCase()).length;
+      return _inMemoryVocab
+          .where((e) => e.languageCode == languageCode.toUpperCase())
+          .length;
     }
     final res = await db.rawQuery(
       'SELECT COUNT(*) as count FROM vocabulary${languageCode != null ? ' WHERE language_code = ?' : ''}',
@@ -701,11 +896,15 @@ class AppDatabase {
     int xpGained = 0,
   }) async {
     final db = await database;
-    final today = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD
+    final today = DateTime.now().toIso8601String().substring(
+      0,
+      10,
+    ); // YYYY-MM-DD
     if (db == null) return; // in-memory: skip persistence
 
     // Upsert: nếu đã có record hôm nay thì cộng dồn
-    await db.execute('''
+    await db.execute(
+      '''
       INSERT INTO daily_activities (date, cards_reviewed, speaking_practiced, words_added, xp_gained)
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(date) DO UPDATE SET
@@ -713,15 +912,22 @@ class AppDatabase {
         speaking_practiced = speaking_practiced + excluded.speaking_practiced,
         words_added       = words_added + excluded.words_added,
         xp_gained         = xp_gained + excluded.xp_gained
-    ''', [today, cardsReviewed, speakingPracticed, wordsAdded, xpGained]);
+    ''',
+      [today, cardsReviewed, speakingPracticed, wordsAdded, xpGained],
+    );
   }
 
   /// Lấy lịch sử hoạt động [days] ngày gần nhất
-  Future<List<Map<String, dynamic>>> getRecentActivities({int days = 28}) async {
+  Future<List<Map<String, dynamic>>> getRecentActivities({
+    int days = 28,
+  }) async {
     final db = await database;
     if (db == null) return []; // in-memory: trả về rỗng
 
-    final cutoff = DateTime.now().subtract(Duration(days: days)).toIso8601String().substring(0, 10);
+    final cutoff = DateTime.now()
+        .subtract(Duration(days: days))
+        .toIso8601String()
+        .substring(0, 10);
     return await db.query(
       'daily_activities',
       where: 'date >= ?',
@@ -735,12 +941,18 @@ class AppDatabase {
   // -------------------------------------------------------------
 
   /// Lưu một Unit mới (do AI tạo hoặc người dùng thêm) kèm danh sách từ vựng
-  Future<void> saveLearningUnit(CurriculumUnit unit, List<VocabularyItem> items) async {
+  Future<void> saveLearningUnit(
+    CurriculumUnit unit,
+    List<VocabularyItem> items,
+  ) async {
     final db = await database;
     if (db == null) {
       int nextId = _inMemoryVocab.isEmpty
           ? 1
-          : (_inMemoryVocab.map((e) => e.id ?? 0).reduce((a, b) => a > b ? a : b) + 1);
+          : (_inMemoryVocab
+                    .map((e) => e.id ?? 0)
+                    .reduce((a, b) => a > b ? a : b) +
+                1);
       final savedWords = <VocabularyItem>[];
       for (final word in items) {
         final withId = word.copyWith(id: nextId);
@@ -796,7 +1008,9 @@ class AppDatabase {
     final db = await database;
     if (db == null) {
       return _inMemoryUnits
-          .where((u) => u.languageCode.toUpperCase() == languageCode.toUpperCase())
+          .where(
+            (u) => u.languageCode.toUpperCase() == languageCode.toUpperCase(),
+          )
           .map((u) {
             final isDone = _inMemoryUnitProgress[u.id] ?? u.isCompleted;
             final score = _inMemoryUnitScores[u.id] ?? u.lastScore;
@@ -837,28 +1051,37 @@ class AppDatabase {
       }
 
       // Get vocabulary items
-      final vocabRows = await db.rawQuery('''
+      final vocabRows = await db.rawQuery(
+        '''
         SELECT v.* FROM vocabulary v
         INNER JOIN unit_vocabulary uv ON v.id = uv.vocab_id
         WHERE uv.unit_id = ?
         ORDER BY v.id ASC
-      ''', [unitId]);
+      ''',
+        [unitId],
+      );
 
       final words = vocabRows.map((r) => VocabularyItem.fromMap(r)).toList();
 
-      results.add(CurriculumUnit.fromMap(
-        row,
-        words: words,
-        isCompleted: isCompleted,
-        lastScore: lastScore,
-        completedAt: completedAt,
-      ));
+      results.add(
+        CurriculumUnit.fromMap(
+          row,
+          words: words,
+          isCompleted: isCompleted,
+          lastScore: lastScore,
+          completedAt: completedAt,
+        ),
+      );
     }
     return results;
   }
 
   /// Cập nhật tiến độ hoàn thành và điểm số của Unit
-  Future<void> updateUnitProgress(String unitId, {required bool isCompleted, int? score}) async {
+  Future<void> updateUnitProgress(
+    String unitId, {
+    required bool isCompleted,
+    int? score,
+  }) async {
     final db = await database;
     if (db == null) {
       _inMemoryUnitProgress[unitId] = isCompleted;
@@ -866,15 +1089,21 @@ class AppDatabase {
       return;
     }
 
-    await db.insert(
-      'unit_progress',
-      {
-        'unit_id': unitId,
-        'is_completed': isCompleted ? 1 : 0,
-        'completed_at': isCompleted ? DateTime.now().toIso8601String() : null,
-        'last_score': score ?? 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    await db.execute(
+      '''
+      INSERT INTO unit_progress (unit_id, is_completed, completed_at, last_score)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(unit_id) DO UPDATE SET
+        is_completed = excluded.is_completed,
+        completed_at = excluded.completed_at,
+        last_score = excluded.last_score
+    ''',
+      [
+        unitId,
+        isCompleted ? 1 : 0,
+        isCompleted ? DateTime.now().toIso8601String() : null,
+        score ?? 0,
+      ],
     );
   }
 
@@ -889,10 +1118,361 @@ class AppDatabase {
     }
 
     await db.transaction((txn) async {
-      await txn.delete('unit_vocabulary', where: 'unit_id = ?', whereArgs: [unitId]);
-      await txn.delete('unit_progress', where: 'unit_id = ?', whereArgs: [unitId]);
+      await txn.delete(
+        'unit_vocabulary',
+        where: 'unit_id = ?',
+        whereArgs: [unitId],
+      );
+      await txn.delete(
+        'unit_progress',
+        where: 'unit_id = ?',
+        whereArgs: [unitId],
+      );
       await txn.delete('learning_units', where: 'id = ?', whereArgs: [unitId]);
     });
   }
-}
 
+  // -------------------------------------------------------------
+  // VOCIVO V2 — PROFILE, SESSIONS, ATTEMPTS & SKILL MASTERY
+  // -------------------------------------------------------------
+
+  Future<LearningProfile> getLearningProfile(String courseCode) async {
+    final code = courseCode.toUpperCase();
+    final db = await database;
+    if (db == null) {
+      return _inMemoryProfiles.putIfAbsent(
+        code,
+        () => LearningProfile.defaults(code),
+      );
+    }
+    final rows = await db.query(
+      'learning_profiles',
+      where: 'course_code = ?',
+      whereArgs: [code],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) return LearningProfile.fromMap(rows.first);
+    final profile = LearningProfile.defaults(code);
+    await db.insert('learning_profiles', profile.toMap());
+    return profile;
+  }
+
+  Future<void> saveLearningProfile(LearningProfile profile) async {
+    final db = await database;
+    if (db == null) {
+      _inMemoryProfiles[profile.courseCode] = profile;
+      return;
+    }
+    await db.insert(
+      'learning_profiles',
+      profile.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<LearningSession?> getActiveLearningSession(String courseCode) async {
+    final code = courseCode.toUpperCase();
+    final db = await database;
+    if (db == null) {
+      final sessions =
+          _inMemorySessions.values
+              .where(
+                (s) =>
+                    s.courseCode == code &&
+                    s.status == LearningSessionStatus.inProgress,
+              )
+              .toList()
+            ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return sessions.firstOrNull;
+    }
+    final rows = await db.query(
+      'learning_sessions',
+      where: 'course_code = ? AND status = ?',
+      whereArgs: [code, LearningSessionStatus.inProgress.name],
+      orderBy: 'updated_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : LearningSession.fromMap(rows.first);
+  }
+
+  Future<void> saveLessonDefinition(LessonDefinition lesson) async {
+    final db = await database;
+    if (db == null) {
+      _inMemoryLessons[lesson.id] = lesson;
+      return;
+    }
+    await db.insert(
+      'lesson_definitions',
+      lesson.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<LessonDefinition?> getLessonDefinition(String lessonId) async {
+    final db = await database;
+    if (db == null) return _inMemoryLessons[lessonId];
+    final rows = await db.query(
+      'lesson_definitions',
+      where: 'id = ?',
+      whereArgs: [lessonId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : LessonDefinition.fromMap(rows.first);
+  }
+
+  Future<void> saveLearningSession(LearningSession session) async {
+    final db = await database;
+    if (db == null) {
+      _inMemorySessions[session.id] = session;
+      return;
+    }
+    await db.insert(
+      'learning_sessions',
+      session.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Hoàn tất phiên, tiến độ unit và daily activity trong cùng một transaction.
+  /// Điều kiện `status = inProgress` biến thao tác này thành idempotent, nên
+  /// double-click hoặc retry sau lỗi mạng/IO không thể cộng XP hai lần.
+  Future<bool> completeLearningSession(
+    LearningSession completed, {
+    required int averageScore,
+    required int speakingPracticed,
+  }) async {
+    final db = await database;
+    if (db == null) {
+      final current = _inMemorySessions[completed.id];
+      if (current?.status != LearningSessionStatus.inProgress) return false;
+      _inMemorySessions[completed.id] = completed;
+      if (completed.unitId != null) {
+        _inMemoryUnitProgress[completed.unitId!] = true;
+        _inMemoryUnitScores[completed.unitId!] = averageScore;
+      }
+      return true;
+    }
+    return _completeLearningSessionInDatabase(
+      db,
+      completed,
+      averageScore: averageScore,
+      speakingPracticed: speakingPracticed,
+    );
+  }
+
+  @visibleForTesting
+  Future<bool> completeLearningSessionForTest(
+    Database db,
+    LearningSession completed, {
+    required int averageScore,
+    required int speakingPracticed,
+  }) => _completeLearningSessionInDatabase(
+    db,
+    completed,
+    averageScore: averageScore,
+    speakingPracticed: speakingPracticed,
+  );
+
+  Future<bool> _completeLearningSessionInDatabase(
+    Database db,
+    LearningSession completed, {
+    required int averageScore,
+    required int speakingPracticed,
+  }) {
+    return db.transaction((txn) async {
+      final updated = await txn.update(
+        'learning_sessions',
+        completed.toMap(),
+        where: 'id = ? AND status = ?',
+        whereArgs: [completed.id, LearningSessionStatus.inProgress.name],
+      );
+      if (updated == 0) return false;
+
+      if (completed.unitId != null) {
+        await txn.execute(
+          '''
+          INSERT INTO unit_progress
+            (unit_id, is_completed, completed_at, last_score, current_lesson, checkpoint_score)
+          VALUES (?, 1, ?, ?, 1, ?)
+          ON CONFLICT(unit_id) DO UPDATE SET
+            is_completed = 1,
+            completed_at = excluded.completed_at,
+            last_score = excluded.last_score,
+            current_lesson = MAX(current_lesson, excluded.current_lesson),
+            checkpoint_score = MAX(checkpoint_score, excluded.checkpoint_score)
+        ''',
+          [
+            completed.unitId,
+            completed.completedAt?.toIso8601String(),
+            averageScore,
+            averageScore,
+          ],
+        );
+      }
+
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      await txn.execute(
+        '''
+        INSERT INTO daily_activities
+          (date, cards_reviewed, speaking_practiced, words_added, xp_gained)
+        VALUES (?, ?, ?, 0, ?)
+        ON CONFLICT(date) DO UPDATE SET
+          cards_reviewed = cards_reviewed + excluded.cards_reviewed,
+          speaking_practiced = speaking_practiced + excluded.speaking_practiced,
+          xp_gained = xp_gained + excluded.xp_gained
+      ''',
+        [today, completed.totalSteps, speakingPracticed, completed.xpEarned],
+      );
+      return true;
+    });
+  }
+
+  /// Lưu attempt theo UNIQUE(session_id, exercise_id) và chỉ cập nhật mastery
+  /// khi attempt thực sự được thêm. Nhờ vậy retry UI không cộng tiến độ hai lần.
+  Future<bool> recordExerciseAttempt(
+    ExerciseAttempt attempt, {
+    required String courseCode,
+    LearningSession? advancedSession,
+  }) async {
+    final code = courseCode.toUpperCase();
+    final masteryId =
+        '${code}_${attempt.skill.name}_${attempt.vocabularyId ?? 0}';
+    final outcome = (attempt.score / 100).clamp(0.0, 1.0);
+    final db = await database;
+    if (db == null) {
+      if (_inMemoryAttempts.any(
+        (e) =>
+            e.sessionId == attempt.sessionId &&
+            e.exerciseId == attempt.exerciseId,
+      )) {
+        return false;
+      }
+      _inMemoryAttempts.add(attempt);
+      final previous = _inMemoryMastery[masteryId];
+      final nextAttempts = (previous?.attempts ?? 0) + 1;
+      final nextMastery = previous == null
+          ? outcome
+          : (previous.mastery * 0.75 + outcome * 0.25).clamp(0.0, 1.0);
+      _inMemoryMastery[masteryId] = SkillMastery(
+        courseCode: code,
+        skill: attempt.skill,
+        vocabularyId: attempt.vocabularyId,
+        mastery: nextMastery,
+        attempts: nextAttempts,
+        updatedAt: DateTime.now(),
+      );
+      if (advancedSession != null) {
+        _inMemorySessions[advancedSession.id] = advancedSession;
+      }
+      return true;
+    }
+
+    return db.transaction((txn) async {
+      final inserted = await txn.insert(
+        'exercise_attempts',
+        attempt.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      if (inserted == 0) return false;
+
+      final rows = await txn.query(
+        'skill_mastery',
+        where: 'id = ?',
+        whereArgs: [masteryId],
+        limit: 1,
+      );
+      final previous = rows.isEmpty ? null : SkillMastery.fromMap(rows.first);
+      final nextAttempts = (previous?.attempts ?? 0) + 1;
+      final nextMastery = previous == null
+          ? outcome
+          : (previous.mastery * 0.75 + outcome * 0.25).clamp(0.0, 1.0);
+      await txn.insert('skill_mastery', {
+        'id': masteryId,
+        'course_code': code,
+        'skill': attempt.skill.name,
+        'vocab_id': attempt.vocabularyId,
+        'mastery': nextMastery,
+        'attempts': nextAttempts,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      if (advancedSession != null) {
+        final sessionUpdated = await txn.update(
+          'learning_sessions',
+          advancedSession.toMap(),
+          where: 'id = ? AND status = ?',
+          whereArgs: [
+            advancedSession.id,
+            LearningSessionStatus.inProgress.name,
+          ],
+        );
+        if (sessionUpdated != 1) {
+          throw StateError(
+            'Không thể cập nhật phiên ${advancedSession.id} sau attempt.',
+          );
+        }
+      }
+      return true;
+    });
+  }
+
+  Future<List<SkillMastery>> getSkillMastery(String courseCode) async {
+    final code = courseCode.toUpperCase();
+    final db = await database;
+    if (db == null) {
+      return _inMemoryMastery.values
+          .where((m) => m.courseCode == code)
+          .toList();
+    }
+    final rows = await db.query(
+      'skill_mastery',
+      where: 'course_code = ?',
+      whereArgs: [code],
+      orderBy: 'mastery ASC, updated_at DESC',
+    );
+    return rows.map(SkillMastery.fromMap).toList();
+  }
+
+  Future<int> getRecentMistakeCount(String courseCode, {int days = 30}) async {
+    final code = courseCode.toUpperCase();
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final db = await database;
+    if (db == null) {
+      return _inMemoryAttempts.where((attempt) {
+        final session = _inMemorySessions[attempt.sessionId];
+        return !attempt.isCorrect &&
+            attempt.createdAt.isAfter(cutoff) &&
+            session?.courseCode == code;
+      }).length;
+    }
+    final result = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM exercise_attempts a
+      INNER JOIN learning_sessions s ON s.id = a.session_id
+      WHERE s.course_code = ? AND a.is_correct = 0 AND a.created_at >= ?
+    ''',
+      [code, cutoff.toIso8601String()],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  Future<void> updateUnitLessonProgress(
+    String unitId, {
+    required int currentLesson,
+    int? checkpointScore,
+  }) async {
+    final db = await database;
+    if (db == null) return;
+    await db.execute(
+      '''
+      INSERT INTO unit_progress
+        (unit_id, is_completed, completed_at, last_score, current_lesson, checkpoint_score)
+      VALUES (?, 0, NULL, 0, ?, ?)
+      ON CONFLICT(unit_id) DO UPDATE SET
+        current_lesson = MAX(current_lesson, excluded.current_lesson),
+        checkpoint_score = MAX(checkpoint_score, excluded.checkpoint_score)
+    ''',
+      [unitId, currentLesson, checkpointScore ?? 0],
+    );
+  }
+}

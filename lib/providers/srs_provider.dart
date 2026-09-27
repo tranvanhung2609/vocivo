@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/database/app_database.dart';
 import '../models/vocabulary_item.dart';
 import '../models/srs_progress.dart';
+import 'language_mode_provider.dart';
 
 @immutable
 class SrsState {
@@ -50,21 +51,40 @@ class SrsState {
 }
 
 class SrsNotifier extends Notifier<SrsState> {
+  int _loadGeneration = 0;
+
   @override
   SrsState build() {
-    Future.microtask(() => initSrs());
+    final languageCode = ref.watch(languageModeProvider);
+    Future.microtask(() => initSrs(languageCode: languageCode));
     return const SrsState(isLoading: true);
   }
 
-  Future<void> initSrs() async {
+  Future<void> initSrs({String? languageCode}) async {
+    final generation = ++_loadGeneration;
     state = state.copyWith(isLoading: true);
     final streak = await AppDatabase.instance.checkAndUpdateStreak();
-    await loadDueCards();
-    state = state.copyWith(streak: streak, isLoading: false);
+    final rows = await AppDatabase.instance.getDueReviews(
+      languageCode: languageCode ?? ref.read(languageModeProvider),
+    );
+    if (generation != _loadGeneration) return;
+    final items = rows.map((row) => VocabularyItem.fromMap(row)).toList();
+    state = state.copyWith(
+      dueItems: items,
+      currentIndex: 0,
+      isCardFlipped: false,
+      isSessionCompleted: items.isEmpty,
+      streak: streak,
+      isLoading: false,
+    );
   }
 
   Future<void> loadDueCards({String? languageCode}) async {
-    final rows = await AppDatabase.instance.getDueReviews(languageCode: languageCode);
+    final generation = ++_loadGeneration;
+    final rows = await AppDatabase.instance.getDueReviews(
+      languageCode: languageCode ?? ref.read(languageModeProvider),
+    );
+    if (generation != _loadGeneration) return;
     final items = rows.map((r) => VocabularyItem.fromMap(r)).toList();
     state = state.copyWith(
       dueItems: items,
@@ -76,6 +96,7 @@ class SrsNotifier extends Notifier<SrsState> {
 
   /// Bắt đầu phiên ôn tập với danh sách thẻ cụ thể (ví dụ: theo bài học trong lộ trình)
   void startCustomSession(List<VocabularyItem> items) {
+    _loadGeneration++;
     state = state.copyWith(
       dueItems: items,
       currentIndex: 0,

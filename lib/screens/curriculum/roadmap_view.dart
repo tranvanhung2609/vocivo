@@ -126,7 +126,7 @@ class RoadmapView extends ConsumerWidget {
                           const Color(0xFF1E293B),
                         ]
                       : [
-                          accentColor.withOpacity(0.12),
+                          accentColor.withValues(alpha: 0.12),
                           Colors.white,
                         ],
                   begin: Alignment.topLeft,
@@ -138,7 +138,7 @@ class RoadmapView extends ConsumerWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: accentColor.withOpacity(0.08),
+                    color: accentColor.withValues(alpha: 0.08),
                     blurRadius: 18,
                     offset: const Offset(0, 6),
                   ),
@@ -152,7 +152,7 @@ class RoadmapView extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: AppColors.streakOrange.withOpacity(0.15),
+                          color: AppColors.streakOrange.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -413,7 +413,7 @@ class RoadmapView extends ConsumerWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -467,7 +467,7 @@ class RoadmapView extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, color: color, size: 20),
@@ -539,7 +539,7 @@ class RoadmapView extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: stageColor.withOpacity(0.14),
+                    color: stageColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(_getIconForName(stage.iconName), color: stageColor, size: 22),
@@ -554,7 +554,7 @@ class RoadmapView extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: stageColor.withOpacity(0.15),
+                              color: stageColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -642,7 +642,7 @@ class RoadmapView extends ConsumerWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: unit.isCompleted
-                    ? const Color(0xFF10B981).withOpacity(0.5)
+                    ? const Color(0xFF10B981).withValues(alpha: 0.5)
                     : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
               ),
             ),
@@ -654,8 +654,8 @@ class RoadmapView extends ConsumerWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     color: unit.isCompleted
-                        ? const Color(0xFF10B981).withOpacity(0.15)
-                        : accentColor.withOpacity(0.1),
+                        ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                        : accentColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -692,7 +692,7 @@ class RoadmapView extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.2),
+                                color: Colors.amber.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(

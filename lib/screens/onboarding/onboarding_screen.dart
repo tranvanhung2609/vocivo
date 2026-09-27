@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_breakpoints.dart';
+import '../../core/database/app_database.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/learning_v2.dart';
 import '../../providers/language_mode_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../home/home_screen.dart';
@@ -23,7 +25,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // Selected options in onboarding
   String _selectedLanguageMode = 'BOTH'; // 'EN', 'ZH', 'BOTH'
-  int _dailyTarget = 10; // 5, 10, 20
+  int _dailyTarget = 15; // minutes per day
   final TextEditingController _apiKeyController = TextEditingController();
   bool _obscureApiKey = true;
 
@@ -34,11 +36,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  void _finishOnboarding() async {
+  Future<void> _finishOnboarding() async {
     HapticFeedback.mediumImpact();
     // Save language mode
     if (_selectedLanguageMode != 'BOTH') {
-      ref.read(languageModeProvider.notifier).setLanguage(_selectedLanguageMode);
+      await ref
+          .read(languageModeProvider.notifier)
+          .setLanguage(_selectedLanguageMode);
+    }
+    final selectedCourse = _selectedLanguageMode == 'ZH' ? 'ZH' : 'EN';
+    final courses = _selectedLanguageMode == 'BOTH'
+        ? const ['EN', 'ZH']
+        : [selectedCourse];
+    for (final course in courses) {
+      await AppDatabase.instance.saveLearningProfile(
+        LearningProfile.defaults(course).copyWith(dailyMinutes: _dailyTarget),
+      );
     }
     // Save API key if provided
     if (_apiKeyController.text.trim().isNotEmpty) {
@@ -89,14 +102,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Align(
                   alignment: Alignment.topRight,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: TextButton(
                       onPressed: _finishOnboarding,
                       child: Text(
                         'Bỏ qua',
                         style: GoogleFonts.plusJakartaSans(
                           fontWeight: FontWeight.w600,
-                          color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+                          color: isDark
+                              ? AppColors.textDarkMuted
+                              : AppColors.textLightMuted,
                         ),
                       ),
                     ),
@@ -135,7 +153,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             decoration: BoxDecoration(
                               color: isCurrent
                                   ? AppColors.primaryEnglish
-                                  : (isDark ? AppColors.borderDark : const Color(0xFFCBD5E1)),
+                                  : (isDark
+                                        ? AppColors.borderDark
+                                        : const Color(0xFFCBD5E1)),
                               borderRadius: BorderRadius.circular(99),
                             ),
                           );
@@ -158,7 +178,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             elevation: 0,
                           ),
                           child: Text(
-                            _currentPage == 2 ? 'Bắt Đầu Trải Nghiệm' : 'Tiếp Tục',
+                            _currentPage == 2
+                                ? 'Bắt Đầu Trải Nghiệm'
+                                : 'Tiếp Tục',
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -188,10 +210,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Glowing logo
-          const VocivoLogo(
-            size: 84,
-            showText: false,
-          ),
+          const VocivoLogo(size: 84, showText: false),
           const SizedBox(height: 28),
 
           Text(
@@ -201,7 +220,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               fontSize: 30,
               fontWeight: FontWeight.w900,
               height: 1.2,
-              color: isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary,
+              color: isDark
+                  ? AppColors.textDarkPrimary
+                  : AppColors.textLightPrimary,
             ),
           ),
           const SizedBox(height: 14),
@@ -212,7 +233,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               height: 1.55,
-              color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+              color: isDark
+                  ? AppColors.textDarkMuted
+                  : AppColors.textLightMuted,
             ),
           ),
           const SizedBox(height: 32),
@@ -228,7 +251,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _buildFeatureRow(
             icon: Icons.style_rounded,
             title: 'Flashcard 3D & SRS SM-2',
-            desc: 'Tối ưu hóa thời điểm ôn tập để ghi nhớ vĩnh viễn không quên.',
+            desc:
+                'Tối ưu hóa thời điểm ôn tập để ghi nhớ vĩnh viễn không quên.',
             isDark: isDark,
           ),
           const SizedBox(height: 12),
@@ -254,7 +278,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppColors.cardDark : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
       ),
       child: Row(
         children: [
@@ -276,14 +302,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary,
+                    color: isDark
+                        ? AppColors.textDarkPrimary
+                        : AppColors.textLightPrimary,
                   ),
                 ),
                 Text(
                   desc,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+                    color: isDark
+                        ? AppColors.textDarkMuted
+                        : AppColors.textLightMuted,
                   ),
                 ),
               ],
@@ -310,15 +340,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: GoogleFonts.outfit(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary,
+              color: isDark
+                  ? AppColors.textDarkPrimary
+                  : AppColors.textLightPrimary,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Chọn ngôn ngữ bạn muốn ưu tiên học và khối lượng từ mỗi ngày:',
+            'Chọn khóa học ưu tiên và thời lượng phù hợp với lịch của bạn:',
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+              color: isDark
+                  ? AppColors.textDarkMuted
+                  : AppColors.textLightMuted,
             ),
           ),
           const SizedBox(height: 24),
@@ -326,7 +360,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           // Language selection
           Text(
             'Ngôn ngữ trọng tâm:',
-            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700),
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 10),
           _buildLanguageOption(
@@ -360,17 +397,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
           // Daily Target selection
           Text(
-            'Mục tiêu số từ mỗi ngày:',
-            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700),
+            'Thời lượng học mỗi ngày:',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _buildTargetPill(5, 'Thư thái', isDark)),
+              Expanded(child: _buildTargetPill(5, 'Nhanh', isDark)),
               const SizedBox(width: 8),
-              Expanded(child: _buildTargetPill(10, 'Tiêu chuẩn', isDark)),
+              Expanded(child: _buildTargetPill(15, 'Tiêu chuẩn', isDark)),
               const SizedBox(width: 8),
-              Expanded(child: _buildTargetPill(20, 'Tăng tốc', isDark)),
+              Expanded(child: _buildTargetPill(25, 'Tăng tốc', isDark)),
             ],
           ),
         ],
@@ -424,14 +464,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     style: GoogleFonts.outfit(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary,
+                      color: isDark
+                          ? AppColors.textDarkPrimary
+                          : AppColors.textLightPrimary,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+                      color: isDark
+                          ? AppColors.textDarkMuted
+                          : AppColors.textLightMuted,
                     ),
                   ),
                 ],
@@ -466,11 +510,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         child: Column(
           children: [
             Text(
-              '$target từ',
+              '$target phút',
               style: GoogleFonts.outfit(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
-                color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white : Colors.black87),
               ),
             ),
             Text(
@@ -516,7 +562,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: GoogleFonts.outfit(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary,
+              color: isDark
+                  ? AppColors.textDarkPrimary
+                  : AppColors.textLightPrimary,
             ),
           ),
           const SizedBox(height: 8),
@@ -525,7 +573,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               height: 1.5,
-              color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+              color: isDark
+                  ? AppColors.textDarkMuted
+                  : AppColors.textLightMuted,
             ),
           ),
           const SizedBox(height: 20),
@@ -551,8 +601,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   IconButton(
                     tooltip: _obscureApiKey ? 'Hiện khóa' : 'Ẩn khóa',
-                    icon: Icon(_obscureApiKey ? Icons.visibility_rounded : Icons.visibility_off_rounded, size: 20),
-                    onPressed: () => setState(() => _obscureApiKey = !_obscureApiKey),
+                    icon: Icon(
+                      _obscureApiKey
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscureApiKey = !_obscureApiKey),
                   ),
                 ],
               ),
@@ -571,7 +627,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             '💡 Bạn có thể để trống và thêm khóa này bất kỳ lúc nào trong phần Cài đặt.',
             style: TextStyle(
               fontSize: 11,
-              color: isDark ? AppColors.textDarkMuted : AppColors.textLightMuted,
+              color: isDark
+                  ? AppColors.textDarkMuted
+                  : AppColors.textLightMuted,
             ),
           ),
           const SizedBox(height: 24),
@@ -583,11 +641,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             decoration: BoxDecoration(
               color: AppColors.primaryEnglishLight,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.primaryEnglish.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: AppColors.primaryEnglish.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.rocket_launch_rounded, color: AppColors.primaryEnglish, size: 24),
+                const Icon(
+                  Icons.rocket_launch_rounded,
+                  color: AppColors.primaryEnglish,
+                  size: 24,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

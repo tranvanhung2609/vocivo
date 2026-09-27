@@ -244,11 +244,11 @@ class _QuickQuizDialogState extends ConsumerState<QuickQuizDialog> {
 
           if (_answered) {
             if (idx == q.correctIndex) {
-              bgColor = const Color(0xFF10B981).withOpacity(0.15);
+              bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
               borderColor = const Color(0xFF10B981);
               textColor = const Color(0xFF10B981);
             } else if (idx == _selectedAnswerIndex) {
-              bgColor = Colors.red.withOpacity(0.12);
+              bgColor = Colors.red.withValues(alpha: 0.12);
               borderColor = Colors.redAccent;
               textColor = Colors.redAccent;
             }

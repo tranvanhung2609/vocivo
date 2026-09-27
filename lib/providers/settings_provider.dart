@@ -10,6 +10,7 @@ class SettingsState {
   final String activeProvider; // 'gemini' or 'openai'
   final String geminiModel;
   final ThemeMode themeMode;
+  final bool useV2Experience;
   final bool hasCompletedOnboarding;
   final bool isLoaded;
 
@@ -19,6 +20,7 @@ class SettingsState {
     this.activeProvider = 'gemini',
     this.geminiModel = 'gemini-flash-latest',
     this.themeMode = ThemeMode.system,
+    this.useV2Experience = true,
     this.hasCompletedOnboarding = false,
     this.isLoaded = false,
   });
@@ -32,6 +34,7 @@ class SettingsState {
     String? activeProvider,
     String? geminiModel,
     ThemeMode? themeMode,
+    bool? useV2Experience,
     bool? hasCompletedOnboarding,
     bool? isLoaded,
   }) {
@@ -41,6 +44,7 @@ class SettingsState {
       activeProvider: activeProvider ?? this.activeProvider,
       geminiModel: geminiModel ?? this.geminiModel,
       themeMode: themeMode ?? this.themeMode,
+      useV2Experience: useV2Experience ?? this.useV2Experience,
       hasCompletedOnboarding: hasCompletedOnboarding ?? this.hasCompletedOnboarding,
       isLoaded: isLoaded ?? this.isLoaded,
     );
@@ -50,6 +54,7 @@ class SettingsState {
 class SettingsNotifier extends Notifier<SettingsState> {
   static const _kThemeModeKey = 'app_theme_mode';
   static const _kOnboardingKey = 'app_has_completed_onboarding';
+  static const _kV2ExperienceKey = 'app_use_v2_experience';
 
   @override
   SettingsState build() {
@@ -66,6 +71,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     final themeString = prefs.getString(_kThemeModeKey);
     final onboardingDone = prefs.getBool(_kOnboardingKey) ?? false;
+    final useV2Experience = prefs.getBool(_kV2ExperienceKey) ?? true;
 
     ThemeMode mode = ThemeMode.system;
     if (themeString == 'light') mode = ThemeMode.light;
@@ -77,6 +83,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       activeProvider: provider,
       geminiModel: model,
       themeMode: mode,
+      useV2Experience: useV2Experience,
       hasCompletedOnboarding: onboardingDone,
       isLoaded: true,
     );
@@ -118,6 +125,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kThemeModeKey, mode.name);
     state = state.copyWith(themeMode: mode);
+  }
+
+  Future<void> setUseV2Experience(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kV2ExperienceKey, enabled);
+    state = state.copyWith(useV2Experience: enabled);
   }
 }
 

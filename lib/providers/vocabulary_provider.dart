@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/database/app_database.dart';
 import '../models/vocabulary_item.dart';
 import '../models/tag_model.dart';
@@ -46,7 +47,9 @@ class VocabularyState {
       tags: tags ?? this.tags,
       selectedTagId: clearTag ? null : (selectedTagId ?? this.selectedTagId),
       selectedLevel: clearLevel ? null : (selectedLevel ?? this.selectedLevel),
-      selectedWord: clearSelectedWord ? null : (selectedWord ?? this.selectedWord),
+      selectedWord: clearSelectedWord
+          ? null
+          : (selectedWord ?? this.selectedWord),
       searchQuery: searchQuery ?? this.searchQuery,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -89,13 +92,15 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
     if (generation != _loadGeneration) return;
 
     VocabularyItem? activeSelection = state.selectedWord;
-    if (activeSelection == null || !results.any((e) => e.word == activeSelection?.word)) {
+    if (activeSelection == null ||
+        !results.any((e) => e.word == activeSelection?.word)) {
       activeSelection = results.isNotEmpty ? results.first : null;
     }
 
     state = state.copyWith(
       tags: tags,
       searchResults: results,
+      notebookItems: results,
       selectedWord: activeSelection,
       isLoading: false,
     );
@@ -120,6 +125,7 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
   }
 
   Future<void> filterByTag(int? tagId) async {
+    final generation = ++_loadGeneration;
     final clearTag = tagId == null || tagId == state.selectedTagId;
     state = state.copyWith(
       selectedTagId: clearTag ? null : tagId,
@@ -133,6 +139,7 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
       tagId: state.selectedTagId,
       level: state.selectedLevel,
     );
+    if (generation != _loadGeneration) return;
     state = state.copyWith(
       searchResults: results,
       selectedWord: results.isNotEmpty ? results.first : null,
@@ -141,6 +148,7 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
   }
 
   Future<void> filterByLevel(String? level) async {
+    final generation = ++_loadGeneration;
     final clearLevel = level == null || level == state.selectedLevel;
     state = state.copyWith(
       selectedLevel: clearLevel ? null : level,
@@ -154,6 +162,7 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
       tagId: state.selectedTagId,
       level: state.selectedLevel,
     );
+    if (generation != _loadGeneration) return;
     state = state.copyWith(
       searchResults: results,
       selectedWord: results.isNotEmpty ? results.first : null,
@@ -167,7 +176,10 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
 
   Future<bool> saveWord(VocabularyItem item, {List<int>? tagIds}) async {
     try {
-      final exists = await AppDatabase.instance.isWordSaved(item.word, item.languageCode);
+      final exists = await AppDatabase.instance.isWordSaved(
+        item.word,
+        item.languageCode,
+      );
       if (exists) return false;
 
       await AppDatabase.instance.insertVocabulary(item, tagIds: tagIds);
@@ -197,6 +209,7 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
   }
 }
 
-final vocabularyProvider = NotifierProvider<VocabularyNotifier, VocabularyState>(() {
-  return VocabularyNotifier();
-});
+final vocabularyProvider =
+    NotifierProvider<VocabularyNotifier, VocabularyState>(() {
+      return VocabularyNotifier();
+    });
